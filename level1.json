@@ -1,0 +1,59 @@
+{
+  "id": "level1",
+  "name": "First Brew",
+  "width": 7,
+  "height": 7,
+  "playerStart": { "x": 1, "y": 5, "z": 0 },
+  "goal": { "x": 5, "y": 1, "z": 0 },
+  "sections": [
+    {
+      "id": "base",
+      "pivot": { "x": 3, "y": 3 },
+      "rotatable": false,
+      "tiles": [
+        { "x": 1, "y": 5, "z": 0, "type": "floor" },
+        { "x": 2, "y": 5, "z": 0, "type": "floor" },
+        { "x": 2, "y": 4, "z": 0, "type": "floor" },
+        { "x": 2, "y": 3, "z": 0, "type": "floor" },
+        { "x": 4, "y": 3, "z": 0, "type": "floor" },
+        { "x": 4, "y": 2, "z": 0, "type": "floor" },
+        { "x": 5, "y": 2, "z": 0, "type": "floor" },
+        { "x": 5, "y": 1, "z": 0, "type": "goal" }
+      ]
+    },
+    {
+      "id": "bridge",
+      "pivot": { "x": 3, "y": 3 },
+      "rotatable": true,
+      "rotationSteps": 4,
+      "currentRotation": 0,
+      "tiles": [
+        { "x": 3, "y": 3, "z": 0, "type": "floor" },
+        { "x": 3, "y": 3, "z": 1, "type": "floor", "face": "top" },
+        { "x": 3, "y": 3, "z": 2, "type": "floor", "face": "top" }
+      ],
+      "connections": [
+        {
+          "rotation": 0,
+          "links": [
+            { "from": { "x": 2, "y": 3 }, "to": { "x": 4, "y": 3 } }
+          ]
+        },
+        {
+          "rotation": 1,
+          "links": []
+        },
+        {
+          "rotation": 2,
+          "links": [
+            { "from": { "x": 2, "y": 3 }, "to": { "x": 4, "y": 3 } }
+          ]
+        },
+        {
+          "rotation": 3,
+          "links": []
+        }
+      ]
+    }
+  ]
+}

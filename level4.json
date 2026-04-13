@@ -1,0 +1,80 @@
+{
+  "id": "level4",
+  "name": "Espresso Drop",
+  "width": 9,
+  "height": 9,
+  "playerStart": { "x": 1, "y": 5, "z": 0 },
+  "goal": { "x": 7, "y": 3, "z": 0 },
+  "sections": [
+    {
+      "id": "base",
+      "pivot": { "x": 4, "y": 4 },
+      "rotatable": false,
+      "tiles": [
+        { "x": 1, "y": 5, "z": 0, "type": "floor" },
+        { "x": 2, "y": 5, "z": 0, "type": "floor" },
+        { "x": 6, "y": 3, "z": 0, "type": "floor" },
+        { "x": 7, "y": 3, "z": 0, "type": "goal" }
+      ]
+    },
+    {
+      "id": "gravity_block",
+      "pivot": { "x": 4, "y": 4 },
+      "rotatable": true,
+      "rotationSteps": 4,
+      "currentRotation": 0,
+      "gravityShift": true,
+      "tiles": [
+        { "x": 3, "y": 5, "z": 0, "type": "floor", "face": "top" },
+        { "x": 3, "y": 4, "z": 0, "type": "wall",  "face": "right" },
+        { "x": 3, "y": 3, "z": 0, "type": "floor", "face": "top" },
+        { "x": 4, "y": 3, "z": 0, "type": "floor", "face": "top" },
+        { "x": 4, "y": 4, "z": 0, "type": "wall",  "face": "right" },
+        { "x": 4, "y": 5, "z": 0, "type": "floor", "face": "top" },
+        { "x": 5, "y": 5, "z": 0, "type": "floor", "face": "top" },
+        { "x": 5, "y": 4, "z": 0, "type": "wall",  "face": "right" },
+        { "x": 5, "y": 3, "z": 0, "type": "floor", "face": "top" }
+      ],
+      "connections": [
+        {
+          "rotation": 0,
+          "links": [
+            { "from": { "x": 2, "y": 5 }, "to": { "x": 3, "y": 5 } },
+            { "from": { "x": 3, "y": 5 }, "to": { "x": 4, "y": 5 } },
+            { "from": { "x": 4, "y": 5 }, "to": { "x": 5, "y": 5 } }
+          ]
+        },
+        {
+          "rotation": 1,
+          "links": [
+            { "from": { "x": 2, "y": 5 }, "to": { "x": 3, "y": 5 } },
+            { "from": { "x": 3, "y": 5 }, "to": { "x": 3, "y": 4 } },
+            { "from": { "x": 3, "y": 4 }, "to": { "x": 3, "y": 3 } },
+            { "from": { "x": 3, "y": 3 }, "to": { "x": 4, "y": 3 } },
+            { "from": { "x": 4, "y": 3 }, "to": { "x": 5, "y": 3 } },
+            { "from": { "x": 5, "y": 3 }, "to": { "x": 6, "y": 3 } }
+          ]
+        },
+        {
+          "rotation": 2,
+          "links": [
+            { "from": { "x": 2, "y": 5 }, "to": { "x": 3, "y": 5 } },
+            { "from": { "x": 3, "y": 5 }, "to": { "x": 4, "y": 5 } },
+            { "from": { "x": 4, "y": 5 }, "to": { "x": 5, "y": 5 } }
+          ]
+        },
+        {
+          "rotation": 3,
+          "links": [
+            { "from": { "x": 2, "y": 5 }, "to": { "x": 3, "y": 5 } },
+            { "from": { "x": 3, "y": 5 }, "to": { "x": 3, "y": 4 } },
+            { "from": { "x": 3, "y": 4 }, "to": { "x": 3, "y": 3 } },
+            { "from": { "x": 3, "y": 3 }, "to": { "x": 4, "y": 3 } },
+            { "from": { "x": 4, "y": 3 }, "to": { "x": 5, "y": 3 } },
+            { "from": { "x": 5, "y": 3 }, "to": { "x": 6, "y": 3 } }
+          ]
+        }
+      ]
+    }
+  ]
+}

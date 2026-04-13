@@ -1,0 +1,904 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Café Impossible</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%; height: 100%;
+    background: #1a1410;
+    overflow: hidden;
+    font-family: 'Georgia', serif;
+  }
+  #game-container {
+    width: 100%; height: 100%;
+    display: flex; align-items: center; justify-content: center;
+  }
+  canvas { display: block; }
+
+  /* HUD Overlay */
+  #hud {
+    position: fixed; top: 0; left: 0; right: 0;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 18px 28px;
+    pointer-events: none;
+    z-index: 10;
+  }
+  #level-title {
+    font-size: 15px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: #c8a97a;
+    opacity: 0.85;
+  }
+  #level-counter {
+    font-size: 13px;
+    letter-spacing: 2px;
+    color: #7a6248;
+  }
+
+  /* Hint button */
+  #hint-btn {
+    position: fixed; bottom: 24px; right: 24px;
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    background: rgba(200,169,122,0.15);
+    border: 1px solid rgba(200,169,122,0.3);
+    color: #c8a97a;
+    font-size: 18px;
+    cursor: pointer;
+    pointer-events: all;
+    z-index: 10;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.2s;
+  }
+  #hint-btn:hover { background: rgba(200,169,122,0.25); }
+
+  /* Level complete overlay */
+  #level-complete {
+    position: fixed; inset: 0;
+    background: rgba(26,20,16,0.92);
+    display: none; align-items: center; justify-content: center;
+    flex-direction: column; gap: 16px;
+    z-index: 20;
+  }
+  #level-complete.show { display: flex; }
+  #level-complete h2 {
+    font-size: 28px; letter-spacing: 4px;
+    color: #c8a97a; text-transform: uppercase;
+  }
+  #level-complete p {
+    font-size: 14px; letter-spacing: 2px;
+    color: #7a6248;
+  }
+  #next-btn {
+    margin-top: 12px;
+    padding: 12px 36px;
+    background: transparent;
+    border: 1px solid #c8a97a;
+    color: #c8a97a;
+    font-size: 13px; letter-spacing: 3px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  #next-btn:hover {
+    background: rgba(200,169,122,0.12);
+  }
+
+  /* Loading screen */
+  #loading {
+    position: fixed; inset: 0;
+    background: #1a1410;
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column; gap: 16px;
+    z-index: 30;
+  }
+  #loading h1 {
+    font-size: 32px; letter-spacing: 6px;
+    color: #c8a97a; text-transform: uppercase;
+  }
+  #loading p {
+    font-size: 11px; letter-spacing: 4px;
+    color: #4a3828; text-transform: uppercase;
+  }
+  .coffee-cup {
+    font-size: 48px;
+    animation: steam 2s ease-in-out infinite;
+  }
+  @keyframes steam {
+    0%, 100% { transform: translateY(0) rotate(-2deg); }
+    50% { transform: translateY(-6px) rotate(2deg); }
+  }
+</style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="coffee-cup">☕</div>
+  <h1>Café Impossible</h1>
+  <p>Brewing your world…</p>
+</div>
+
+<div id="hud">
+  <div id="level-title">Level 1 — First Brew</div>
+  <div id="level-counter">1 / 5</div>
+</div>
+
+<button id="hint-btn" title="Hint">?</button>
+
+<div id="level-complete">
+  <h2>☕ Brewed!</h2>
+  <p id="complete-msg">You found the perfect cup.</p>
+  <button id="next-btn" onclick="nextLevel()">Next Level</button>
+</div>
+
+<div id="game-container"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/3.60.0/phaser.min.js"></script>
+<script>
+// ─────────────────────────────────────────────
+//  CONSTANTS & PALETTE
+// ─────────────────────────────────────────────
+const TILE_W = 64;   // isometric tile width
+const TILE_H = 32;   // isometric tile height
+const TILE_DEPTH = 20; // visual depth of tile sides
+const Z_STEP = 28;   // pixels per z-unit (height)
+
+const PALETTE = {
+  floor_top:    0xd4b896,
+  floor_left:   0x9c7d5e,
+  floor_right:  0xb8966e,
+  stair_top:    0xcca882,
+  stair_left:   0x8a6e4f,
+  stair_right:  0xa07b5a,
+  wall_top:     0xe8d4b8,
+  wall_left:    0x6b4f34,
+  wall_right:   0x7a5c3e,
+  goal_top:     0xf5c842,
+  goal_left:    0xc4920a,
+  goal_right:   0xd9a81a,
+  player:       0xe8e0d4,
+  player_shadow:0x3a2810,
+  section_highlight: 0xfff0c8,
+  bg:           0x1a1410,
+};
+
+// ─────────────────────────────────────────────
+//  ISO HELPERS
+// ─────────────────────────────────────────────
+function isoToScreen(gx, gy, gz, originX, originY) {
+  const sx = (gx - gy) * (TILE_W / 2);
+  const sy = (gx + gy) * (TILE_H / 2) - gz * Z_STEP;
+  return { x: originX + sx, y: originY + sy };
+}
+
+// ─────────────────────────────────────────────
+//  CONNECTIVITY GRAPH
+// ─────────────────────────────────────────────
+class ConnGraph {
+  constructor() { this.adj = {}; }
+  key(x, y) { return `${x},${y}`; }
+  clear() { this.adj = {}; }
+  addEdge(x1, y1, x2, y2) {
+    const a = this.key(x1, y1), b = this.key(x2, y2);
+    if (!this.adj[a]) this.adj[a] = new Set();
+    if (!this.adj[b]) this.adj[b] = new Set();
+    this.adj[a].add(b); this.adj[b].add(a);
+  }
+  neighbors(x, y) {
+    return Array.from(this.adj[this.key(x, y)] || []).map(k => {
+      const [nx, ny] = k.split(',').map(Number);
+      return { x: nx, y: ny };
+    });
+  }
+  bfs(sx, sy, gx, gy) {
+    const start = this.key(sx, sy), goal = this.key(gx, gy);
+    if (start === goal) return [];
+    const visited = new Set([start]);
+    const queue = [[start, []]];
+    while (queue.length) {
+      const [cur, path] = queue.shift();
+      for (const nb of (this.adj[cur] || [])) {
+        if (nb === goal) {
+          const full = [...path, cur, goal];
+          return full.map(k => { const [x,y]=k.split(',').map(Number); return {x,y}; });
+        }
+        if (!visited.has(nb)) { visited.add(nb); queue.push([nb, [...path, cur]]); }
+      }
+    }
+    return null;
+  }
+}
+
+// ─────────────────────────────────────────────
+//  LEVEL MANAGER  – loads JSON, builds state
+// ─────────────────────────────────────────────
+class LevelManager {
+  constructor() {
+    this.levels = ['level1.json','level2.json','level3.json','level4.json','level5.json'];
+    this.currentIndex = 0;
+    this.data = null;
+  }
+
+  async load(index) {
+    this.currentIndex = index;
+    // Inline level data so the game works as a standalone file
+    this.data = INLINE_LEVELS[index];
+    return this.data;
+  }
+
+  buildGraph(data) {
+    const g = new ConnGraph();
+    // Collect all walkable tile positions
+    const walkable = new Set();
+    for (const sec of data.sections) {
+      for (const t of sec.tiles) {
+        if (t.type !== 'wall') walkable.add(`${t.x},${t.y}`);
+      }
+    }
+    // Add adjacency from each section's current rotation connection list
+    for (const sec of data.sections) {
+      const rot = sec.currentRotation || 0;
+      const connBlock = (sec.connections || []).find(c => c.rotation === rot);
+      if (connBlock) {
+        for (const link of connBlock.links) {
+          g.addEdge(link.from.x, link.from.y, link.to.x, link.to.y);
+        }
+      }
+    }
+    return g;
+  }
+}
+
+// ─────────────────────────────────────────────
+//  INLINE LEVELS (so game works without a server)
+// ─────────────────────────────────────────────
+const INLINE_LEVELS = [
+  // Level 1 – First Brew
+  {
+    id:'level1', name:'First Brew', width:7, height:7,
+    playerStart:{x:1,y:5,z:0}, goal:{x:5,y:1,z:0},
+    sections:[
+      { id:'base', pivot:{x:3,y:3}, rotatable:false, currentRotation:0,
+        tiles:[
+          {x:1,y:5,z:0,type:'floor'},{x:2,y:5,z:0,type:'floor'},
+          {x:2,y:4,z:0,type:'floor'},{x:2,y:3,z:0,type:'floor'},
+          {x:4,y:3,z:0,type:'floor'},{x:4,y:2,z:0,type:'floor'},
+          {x:5,y:2,z:0,type:'floor'},{x:5,y:1,z:0,type:'goal'}
+        ],
+        connections:[{rotation:0,links:[]}]
+      },
+      { id:'bridge', pivot:{x:3,y:3}, rotatable:true, rotationSteps:4, currentRotation:0,
+        tiles:[
+          {x:3,y:3,z:0,type:'floor'},{x:3,y:3,z:1,type:'floor',face:'top'},{x:3,y:3,z:2,type:'floor',face:'top'}
+        ],
+        connections:[
+          {rotation:0,links:[{from:{x:2,y:3},to:{x:3,y:3}},{from:{x:3,y:3},to:{x:4,y:3}}]},
+          {rotation:1,links:[]},
+          {rotation:2,links:[{from:{x:2,y:3},to:{x:3,y:3}},{from:{x:3,y:3},to:{x:4,y:3}}]},
+          {rotation:3,links:[]}
+        ]
+      }
+    ]
+  },
+  // Level 2 – Winding Path
+  {
+    id:'level2', name:'Winding Path', width:9, height:9,
+    playerStart:{x:1,y:7,z:0}, goal:{x:7,y:1,z:0},
+    sections:[
+      { id:'base', pivot:{x:4,y:4}, rotatable:false, currentRotation:0,
+        tiles:[
+          {x:1,y:7,z:0,type:'floor'},{x:2,y:7,z:0,type:'floor'},
+          {x:2,y:6,z:0,type:'floor'},
+          {x:6,y:2,z:0,type:'floor'},{x:7,y:2,z:0,type:'floor'},
+          {x:7,y:1,z:0,type:'goal'}
+        ],
+        connections:[{rotation:0,links:[
+          {from:{x:1,y:7},to:{x:2,y:7}},
+          {from:{x:2,y:7},to:{x:2,y:6}},
+          {from:{x:6,y:2},to:{x:7,y:2}},
+          {from:{x:7,y:2},to:{x:7,y:1}}
+        ]}]
+      },
+      { id:'penrose', pivot:{x:4,y:4}, rotatable:true, rotationSteps:4, currentRotation:0,
+        tiles:[
+          {x:2,y:5,z:0,type:'stair',face:'top'},{x:3,y:5,z:1,type:'stair',face:'top'},
+          {x:4,y:5,z:2,type:'stair',face:'top'},{x:4,y:4,z:2,type:'floor',face:'top'},
+          {x:4,y:3,z:2,type:'stair',face:'top'},{x:5,y:3,z:1,type:'stair',face:'top'},
+          {x:6,y:3,z:0,type:'stair',face:'top'},{x:6,y:4,z:0,type:'floor',face:'top'},
+          {x:6,y:5,z:0,type:'floor',face:'top'}
+        ],
+        connections:[
+          {rotation:0,links:[
+            {from:{x:2,y:6},to:{x:2,y:5}},
+            {from:{x:2,y:5},to:{x:3,y:5}},{from:{x:3,y:5},to:{x:4,y:5}},
+            {from:{x:4,y:5},to:{x:4,y:4}},{from:{x:4,y:4},to:{x:4,y:3}},
+            {from:{x:4,y:3},to:{x:5,y:3}},{from:{x:5,y:3},to:{x:6,y:3}},
+            {from:{x:6,y:3},to:{x:6,y:4}},{from:{x:6,y:4},to:{x:6,y:5}},
+            {from:{x:6,y:5},to:{x:6,y:2}}
+          ]},
+          {rotation:1,links:[]},
+          {rotation:2,links:[
+            {from:{x:2,y:6},to:{x:2,y:5}},{from:{x:6,y:5},to:{x:6,y:2}}
+          ]},
+          {rotation:3,links:[]}
+        ]
+      }
+    ]
+  },
+  // Level 3 – Hidden Grounds
+  {
+    id:'level3', name:'Hidden Grounds', width:9, height:9,
+    playerStart:{x:1,y:7,z:0}, goal:{x:7,y:1,z:0},
+    sections:[
+      { id:'base', pivot:{x:4,y:4}, rotatable:false, currentRotation:0,
+        tiles:[
+          {x:1,y:7,z:0,type:'floor'},{x:2,y:7,z:0,type:'floor'},
+          {x:2,y:6,z:0,type:'floor'},{x:2,y:5,z:0,type:'floor'},
+          {x:6,y:3,z:0,type:'floor'},{x:6,y:2,z:0,type:'floor'},
+          {x:7,y:2,z:0,type:'floor'},{x:7,y:1,z:0,type:'goal'}
+        ],
+        connections:[{rotation:0,links:[
+          {from:{x:1,y:7},to:{x:2,y:7}},{from:{x:2,y:7},to:{x:2,y:6}},
+          {from:{x:2,y:6},to:{x:2,y:5}},
+          {from:{x:6,y:3},to:{x:6,y:2}},{from:{x:6,y:2},to:{x:7,y:2}},
+          {from:{x:7,y:2},to:{x:7,y:1}}
+        ]}]
+      },
+      { id:'tower_a', pivot:{x:3,y:4}, rotatable:true, rotationSteps:4, currentRotation:0,
+        tiles:[
+          {x:3,y:4,z:0,type:'floor'},{x:3,y:4,z:1,type:'wall'},{x:3,y:4,z:2,type:'floor',face:'top'}
+        ],
+        connections:[
+          {rotation:0,links:[]},{rotation:1,links:[{from:{x:2,y:5},to:{x:3,y:4}}]},
+          {rotation:2,links:[]},{rotation:3,links:[{from:{x:2,y:5},to:{x:3,y:4}}]}
+        ]
+      },
+      { id:'tower_b', pivot:{x:5,y:4}, rotatable:true, rotationSteps:4, currentRotation:0,
+        tiles:[
+          {x:5,y:4,z:0,type:'floor'},{x:5,y:4,z:1,type:'wall'},{x:5,y:4,z:2,type:'floor',face:'top'}
+        ],
+        connections:[
+          {rotation:0,links:[]},{rotation:1,links:[{from:{x:5,y:4},to:{x:6,y:3}}]},
+          {rotation:2,links:[]},{rotation:3,links:[{from:{x:5,y:4},to:{x:6,y:3}}]}
+        ]
+      },
+      { id:'bridge_hidden', pivot:{x:4,y:4}, rotatable:true, rotationSteps:4, currentRotation:0,
+        tiles:[{x:4,y:4,z:2,type:'floor',face:'top'}],
+        connections:[
+          {rotation:0,links:[]},
+          {rotation:1,links:[{from:{x:3,y:4},to:{x:4,y:4}},{from:{x:4,y:4},to:{x:5,y:4}}]},
+          {rotation:2,links:[]},
+          {rotation:3,links:[{from:{x:3,y:4},to:{x:4,y:4}},{from:{x:4,y:4},to:{x:5,y:4}}]}
+        ]
+      }
+    ]
+  },
+  // Level 4 – Espresso Drop
+  {
+    id:'level4', name:'Espresso Drop', width:9, height:9,
+    playerStart:{x:1,y:5,z:0}, goal:{x:7,y:3,z:0},
+    sections:[
+      { id:'base', pivot:{x:4,y:4}, rotatable:false, currentRotation:0,
+        tiles:[
+          {x:1,y:5,z:0,type:'floor'},{x:2,y:5,z:0,type:'floor'},
+          {x:6,y:3,z:0,type:'floor'},{x:7,y:3,z:0,type:'goal'}
+        ],
+        connections:[{rotation:0,links:[
+          {from:{x:1,y:5},to:{x:2,y:5}},{from:{x:6,y:3},to:{x:7,y:3}}
+        ]}]
+      },
+      { id:'gravity_block', pivot:{x:4,y:4}, rotatable:true, rotationSteps:4, currentRotation:0, gravityShift:true,
+        tiles:[
+          {x:3,y:5,z:0,type:'floor',face:'top'},{x:3,y:4,z:0,type:'wall',face:'right'},
+          {x:3,y:3,z:0,type:'floor',face:'top'},{x:4,y:3,z:0,type:'floor',face:'top'},
+          {x:4,y:4,z:0,type:'wall',face:'right'},{x:4,y:5,z:0,type:'floor',face:'top'},
+          {x:5,y:5,z:0,type:'floor',face:'top'},{x:5,y:4,z:0,type:'wall',face:'right'},
+          {x:5,y:3,z:0,type:'floor',face:'top'}
+        ],
+        connections:[
+          {rotation:0,links:[
+            {from:{x:2,y:5},to:{x:3,y:5}},{from:{x:3,y:5},to:{x:4,y:5}},{from:{x:4,y:5},to:{x:5,y:5}}
+          ]},
+          {rotation:1,links:[
+            {from:{x:2,y:5},to:{x:3,y:5}},{from:{x:3,y:5},to:{x:3,y:4}},{from:{x:3,y:4},to:{x:3,y:3}},
+            {from:{x:3,y:3},to:{x:4,y:3}},{from:{x:4,y:3},to:{x:5,y:3}},{from:{x:5,y:3},to:{x:6,y:3}}
+          ]},
+          {rotation:2,links:[
+            {from:{x:2,y:5},to:{x:3,y:5}},{from:{x:3,y:5},to:{x:4,y:5}},{from:{x:4,y:5},to:{x:5,y:5}}
+          ]},
+          {rotation:3,links:[
+            {from:{x:2,y:5},to:{x:3,y:5}},{from:{x:3,y:5},to:{x:3,y:4}},{from:{x:3,y:4},to:{x:3,y:3}},
+            {from:{x:3,y:3},to:{x:4,y:3}},{from:{x:4,y:3},to:{x:5,y:3}},{from:{x:5,y:3},to:{x:6,y:3}}
+          ]}
+        ]
+      }
+    ]
+  },
+  // Level 5 – The Perfect Cup
+  {
+    id:'level5', name:'The Perfect Cup', width:11, height:11,
+    playerStart:{x:1,y:9,z:0}, goal:{x:9,y:1,z:0},
+    sections:[
+      { id:'base', pivot:{x:5,y:5}, rotatable:false, currentRotation:0,
+        tiles:[
+          {x:1,y:9,z:0,type:'floor'},{x:2,y:9,z:0,type:'floor'},{x:2,y:8,z:0,type:'floor'},
+          {x:8,y:2,z:0,type:'floor'},{x:8,y:1,z:0,type:'floor'},{x:9,y:1,z:0,type:'goal'}
+        ],
+        connections:[{rotation:0,links:[
+          {from:{x:1,y:9},to:{x:2,y:9}},{from:{x:2,y:9},to:{x:2,y:8}},
+          {from:{x:8,y:2},to:{x:8,y:1}},{from:{x:8,y:1},to:{x:9,y:1}}
+        ]}]
+      },
+      { id:'section_a', pivot:{x:3,y:7}, rotatable:true, rotationSteps:4, currentRotation:0,
+        tiles:[
+          {x:3,y:7,z:0,type:'floor'},{x:3,y:6,z:0,type:'stair',face:'top'},{x:3,y:5,z:1,type:'floor',face:'top'}
+        ],
+        connections:[
+          {rotation:0,links:[{from:{x:2,y:8},to:{x:3,y:7}},{from:{x:3,y:7},to:{x:3,y:6}},{from:{x:3,y:6},to:{x:3,y:5}}]},
+          {rotation:1,links:[]},
+          {rotation:2,links:[{from:{x:2,y:8},to:{x:3,y:7}},{from:{x:3,y:7},to:{x:3,y:6}},{from:{x:3,y:6},to:{x:3,y:5}}]},
+          {rotation:3,links:[]}
+        ]
+      },
+      { id:'section_b', pivot:{x:5,y:5}, rotatable:true, rotationSteps:4, currentRotation:0, gravityShift:true,
+        tiles:[
+          {x:4,y:5,z:1,type:'floor',face:'top'},{x:5,y:5,z:1,type:'floor',face:'top'},
+          {x:5,y:4,z:1,type:'wall',face:'right'},{x:6,y:5,z:1,type:'floor',face:'top'}
+        ],
+        connections:[
+          {rotation:0,links:[{from:{x:3,y:5},to:{x:4,y:5}},{from:{x:4,y:5},to:{x:5,y:5}},{from:{x:5,y:5},to:{x:6,y:5}}]},
+          {rotation:1,links:[{from:{x:3,y:5},to:{x:4,y:5}},{from:{x:4,y:5},to:{x:5,y:5}},{from:{x:5,y:5},to:{x:5,y:4}},{from:{x:5,y:4},to:{x:6,y:4}}]},
+          {rotation:2,links:[{from:{x:3,y:5},to:{x:4,y:5}},{from:{x:4,y:5},to:{x:5,y:5}},{from:{x:5,y:5},to:{x:6,y:5}}]},
+          {rotation:3,links:[{from:{x:3,y:5},to:{x:4,y:5}},{from:{x:4,y:5},to:{x:5,y:5}},{from:{x:5,y:5},to:{x:5,y:4}},{from:{x:5,y:4},to:{x:6,y:4}}]}
+        ]
+      },
+      { id:'section_c', pivot:{x:7,y:3}, rotatable:true, rotationSteps:4, currentRotation:0,
+        tiles:[
+          {x:7,y:5,z:1,type:'floor',face:'top'},{x:7,y:4,z:1,type:'stair',face:'top'},{x:7,y:3,z:0,type:'floor'}
+        ],
+        connections:[
+          {rotation:0,links:[{from:{x:6,y:5},to:{x:7,y:5}},{from:{x:7,y:5},to:{x:7,y:4}},{from:{x:7,y:4},to:{x:7,y:3}},{from:{x:7,y:3},to:{x:8,y:2}}]},
+          {rotation:1,links:[]},
+          {rotation:2,links:[{from:{x:6,y:5},to:{x:7,y:5}},{from:{x:7,y:5},to:{x:7,y:4}},{from:{x:7,y:4},to:{x:7,y:3}},{from:{x:7,y:3},to:{x:8,y:2}}]},
+          {rotation:3,links:[]}
+        ]
+      }
+    ]
+  }
+];
+
+// ─────────────────────────────────────────────
+//  GAME SCENE
+// ─────────────────────────────────────────────
+class GameScene extends Phaser.Scene {
+  constructor() {
+    super({ key: 'GameScene' });
+    this.lvMgr = new LevelManager();
+    this.graph = new ConnGraph();
+    this.levelData = null;
+    this.playerPos = { x: 0, y: 0 };
+    this.playerWalking = false;
+    this.walkPath = [];
+    this.tileGraphics = [];
+    this.playerGfx = null;
+    this.shadowGfx = null;
+    this.originX = 0;
+    this.originY = 0;
+    this.selectedSection = null;
+    this.isRotating = false;
+    this.sectionIndicators = [];
+  }
+
+  preload() {}
+
+  async create() {
+    this.cameras.main.setBackgroundColor(PALETTE.bg);
+    await this.loadLevel(0);
+    this.setupInput();
+    document.getElementById('loading').style.display = 'none';
+  }
+
+  async loadLevel(index) {
+    const data = await this.lvMgr.load(index);
+    this.levelData = JSON.parse(JSON.stringify(data)); // deep copy
+    this.graph = this.lvMgr.buildGraph(this.levelData);
+
+    // Origin: center the grid on screen
+    const W = this.scale.width, H = this.scale.height;
+    const cx = (this.levelData.width / 2);
+    const cy = (this.levelData.height / 2);
+    const screenCenter = isoToScreen(cx, cy, 0, 0, 0);
+    this.originX = W / 2 - screenCenter.x;
+    this.originY = H / 2 - screenCenter.y + H * 0.05;
+
+    this.playerPos = { ...this.levelData.playerStart };
+    this.clearScene();
+    this.drawLevel();
+    this.drawPlayer();
+    this.updateHUD();
+  }
+
+  clearScene() {
+    this.tileGraphics.forEach(g => g.destroy());
+    this.tileGraphics = [];
+    this.sectionIndicators.forEach(g => g.destroy());
+    this.sectionIndicators = [];
+    if (this.playerGfx) this.playerGfx.destroy();
+    if (this.shadowGfx) this.shadowGfx.destroy();
+    if (this.rotateBtns) this.rotateBtns.forEach(b => b.destroy());
+    this.rotateBtns = [];
+  }
+
+  drawLevel() {
+    // Sort all tiles by iso depth (painter's algorithm)
+    let allTiles = [];
+    for (const sec of this.levelData.sections) {
+      for (const tile of sec.tiles) {
+        allTiles.push({ ...tile, sectionId: sec.id, rotatable: sec.rotatable });
+      }
+    }
+    allTiles.sort((a, b) => (a.x + a.y + a.z * 0.5) - (b.x + b.y + b.z * 0.5));
+
+    for (const tile of allTiles) {
+      this.drawTile(tile);
+    }
+    this.drawSectionButtons();
+  }
+
+  drawTile(tile) {
+    const { x: sx, y: sy } = isoToScreen(tile.x, tile.y, tile.z, this.originX, this.originY);
+    const g = this.add.graphics();
+    this.tileGraphics.push(g);
+
+    const hw = TILE_W / 2, hh = TILE_H / 2;
+    const depth = tile.type === 'wall' ? TILE_DEPTH * 3 : TILE_DEPTH;
+
+    // Choose colors
+    let topC = PALETTE.floor_top, leftC = PALETTE.floor_left, rightC = PALETTE.floor_right;
+    if (tile.type === 'stair') { topC = PALETTE.stair_top; leftC = PALETTE.stair_left; rightC = PALETTE.stair_right; }
+    if (tile.type === 'wall')  { topC = PALETTE.wall_top;  leftC = PALETTE.wall_left;  rightC = PALETTE.wall_right; }
+    if (tile.type === 'goal')  { topC = PALETTE.goal_top;  leftC = PALETTE.goal_left;  rightC = PALETTE.goal_right; }
+
+    // Top face (rhombus)
+    g.fillStyle(topC);
+    g.beginPath();
+    g.moveTo(sx, sy - hh);
+    g.lineTo(sx + hw, sy);
+    g.lineTo(sx, sy + hh);
+    g.lineTo(sx - hw, sy);
+    g.closePath(); g.fillPath();
+
+    // Left face
+    g.fillStyle(leftC);
+    g.beginPath();
+    g.moveTo(sx - hw, sy);
+    g.lineTo(sx, sy + hh);
+    g.lineTo(sx, sy + hh + depth);
+    g.lineTo(sx - hw, sy + depth);
+    g.closePath(); g.fillPath();
+
+    // Right face
+    g.fillStyle(rightC);
+    g.beginPath();
+    g.moveTo(sx, sy + hh);
+    g.lineTo(sx + hw, sy);
+    g.lineTo(sx + hw, sy + depth);
+    g.lineTo(sx, sy + hh + depth);
+    g.closePath(); g.fillPath();
+
+    // Subtle outline
+    g.lineStyle(1, 0x000000, 0.15);
+    g.beginPath();
+    g.moveTo(sx, sy - hh); g.lineTo(sx + hw, sy);
+    g.lineTo(sx, sy + hh); g.lineTo(sx - hw, sy);
+    g.closePath(); g.strokePath();
+
+    // Goal: draw coffee cup icon
+    if (tile.type === 'goal') {
+      const cup = this.add.text(sx - 10, sy - 24, '☕', { fontSize: '20px' });
+      cup.setDepth(100);
+      this.tileGraphics.push(cup);
+    }
+
+    // Set depth for painter sort
+    g.setDepth(tile.x + tile.y + tile.z * 0.5);
+    g.setInteractive(
+      new Phaser.Geom.Polygon([
+        sx, sy - hh, sx + hw, sy, sx, sy + hh, sx - hw, sy
+      ]),
+      Phaser.Geom.Polygon.Contains
+    );
+    g.tileData = tile;
+
+    g.on('pointerdown', () => this.onTileTap(tile));
+    g.on('pointerover', () => {
+      if (!this.playerWalking && !this.isRotating) {
+        g.setAlpha(0.85);
+      }
+    });
+    g.on('pointerout', () => g.setAlpha(1));
+  }
+
+  drawSectionButtons() {
+    this.sectionIndicators.forEach(g => g.destroy());
+    this.sectionIndicators = [];
+
+    for (const sec of this.levelData.sections) {
+      if (!sec.rotatable) continue;
+      // Find bounding center of section
+      const xs = sec.tiles.map(t => t.x);
+      const ys = sec.tiles.map(t => t.y);
+      const cx = xs.reduce((a,b)=>a+b,0)/xs.length;
+      const cy = ys.reduce((a,b)=>a+b,0)/ys.length;
+      const maxZ = Math.max(...sec.tiles.map(t=>t.z||0));
+      const { x: sx, y: sy } = isoToScreen(cx, cy, maxZ + 1, this.originX, this.originY);
+
+      // Rotate button (circular arrow)
+      const btn = this.add.graphics();
+      btn.setDepth(200);
+      btn.fillStyle(0xc8a97a, 0.2);
+      btn.fillCircle(sx, sy - 12, 18);
+      btn.lineStyle(2, 0xc8a97a, 0.7);
+      btn.strokeCircle(sx, sy - 12, 18);
+
+      const txt = this.add.text(sx - 8, sy - 22, '↻', {
+        fontSize: '18px', color: '#c8a97a', alpha: 0.9
+      });
+      txt.setDepth(201);
+
+      btn.setInteractive(new Phaser.Geom.Circle(sx, sy - 12, 22), Phaser.Geom.Circle.Contains);
+      btn.on('pointerdown', (ptr) => {
+        ptr.event.stopPropagation();
+        this.rotateSection(sec.id, 1);
+      });
+      btn.on('pointerover', () => btn.fillStyle(0xc8a97a, 0.35));
+      btn.on('pointerout',  () => btn.fillStyle(0xc8a97a, 0.2));
+
+      this.sectionIndicators.push(btn, txt);
+    }
+  }
+
+  drawPlayer() {
+    if (this.playerGfx) this.playerGfx.destroy();
+    if (this.shadowGfx) this.shadowGfx.destroy();
+
+    const { x: sx, y: sy } = isoToScreen(
+      this.playerPos.x, this.playerPos.y, this.playerPos.z || 0,
+      this.originX, this.originY
+    );
+
+    // Shadow
+    this.shadowGfx = this.add.graphics();
+    this.shadowGfx.fillStyle(PALETTE.player_shadow, 0.3);
+    this.shadowGfx.fillEllipse(sx, sy + TILE_H/2 - 4, TILE_W * 0.6, TILE_H * 0.4);
+    this.shadowGfx.setDepth(this.playerPos.x + this.playerPos.y + 0.4);
+
+    // Body
+    this.playerGfx = this.add.graphics();
+    // Legs
+    this.playerGfx.fillStyle(0x8a6e4f);
+    this.playerGfx.fillRect(sx - 6, sy - 4, 5, 12);
+    this.playerGfx.fillRect(sx + 1, sy - 4, 5, 12);
+    // Body
+    this.playerGfx.fillStyle(PALETTE.player);
+    this.playerGfx.fillRoundedRect(sx - 9, sy - 22, 18, 18, 4);
+    // Head
+    this.playerGfx.fillStyle(0xf0d8b8);
+    this.playerGfx.fillCircle(sx, sy - 28, 9);
+    // Eyes
+    this.playerGfx.fillStyle(0x3a2810);
+    this.playerGfx.fillCircle(sx - 3, sy - 29, 2);
+    this.playerGfx.fillCircle(sx + 3, sy - 29, 2);
+
+    this.playerGfx.setDepth(this.playerPos.x + this.playerPos.y + 0.9);
+  }
+
+  onTileTap(tile) {
+    if (this.playerWalking || this.isRotating) return;
+    const path = this.graph.bfs(this.playerPos.x, this.playerPos.y, tile.x, tile.y);
+    if (path && path.length > 1) {
+      this.walkPath = path.slice(1);
+      this.walkNext();
+    }
+  }
+
+  walkNext() {
+    if (!this.walkPath.length) {
+      this.playerWalking = false;
+      this.checkGoal();
+      return;
+    }
+    this.playerWalking = true;
+    const next = this.walkPath.shift();
+    const startPos = { ...this.playerPos };
+
+    // Find z for destination tile
+    let destZ = 0;
+    for (const sec of this.levelData.sections) {
+      const t = sec.tiles.find(t => t.x === next.x && t.y === next.y && t.type !== 'wall');
+      if (t) { destZ = t.z || 0; break; }
+    }
+
+    const { x: x1, y: y1 } = isoToScreen(startPos.x, startPos.y, startPos.z||0, this.originX, this.originY);
+    const { x: x2, y: y2 } = isoToScreen(next.x, next.y, destZ, this.originX, this.originY);
+
+    this.playerPos = { x: next.x, y: next.y, z: destZ };
+
+    // Animate player graphics
+    const steps = 12;
+    let step = 0;
+    const timer = this.time.addEvent({
+      delay: 16, repeat: steps - 1,
+      callback: () => {
+        step++;
+        const t = step / steps;
+        const ease = t < 0.5 ? 2*t*t : -1+(4-2*t)*t; // ease in-out quad
+        const cx = x1 + (x2 - x1) * ease;
+        const cy = y1 + (y2 - y1) * ease;
+        const bobY = Math.sin(t * Math.PI) * -8; // hop arc
+
+        if (this.playerGfx) this.playerGfx.destroy();
+        if (this.shadowGfx) this.shadowGfx.destroy();
+
+        // Redraw at interpolated position
+        this.shadowGfx = this.add.graphics();
+        this.shadowGfx.fillStyle(PALETTE.player_shadow, 0.3 * (1 - Math.sin(t*Math.PI)*0.5));
+        this.shadowGfx.fillEllipse(cx, cy + TILE_H/2 - 4, TILE_W*0.6*(1-Math.sin(t*Math.PI)*0.2), TILE_H*0.4);
+        this.shadowGfx.setDepth(next.x + next.y + 0.4);
+
+        this.playerGfx = this.add.graphics();
+        const py = cy + bobY;
+        this.playerGfx.fillStyle(0x8a6e4f);
+        this.playerGfx.fillRect(cx-6, py-4, 5, 12);
+        this.playerGfx.fillRect(cx+1, py-4, 5, 12);
+        this.playerGfx.fillStyle(PALETTE.player);
+        this.playerGfx.fillRoundedRect(cx-9, py-22, 18, 18, 4);
+        this.playerGfx.fillStyle(0xf0d8b8);
+        this.playerGfx.fillCircle(cx, py-28, 9);
+        this.playerGfx.fillStyle(0x3a2810);
+        this.playerGfx.fillCircle(cx-3, py-29, 2);
+        this.playerGfx.fillCircle(cx+3, py-29, 2);
+        this.playerGfx.setDepth(next.x + next.y + 0.9);
+
+        if (step >= steps) {
+          this.walkNext();
+        }
+      }
+    });
+  }
+
+  rotateSection(sectionId, direction) {
+    if (this.isRotating || this.playerWalking) return;
+    const sec = this.levelData.sections.find(s => s.id === sectionId);
+    if (!sec || !sec.rotatable) return;
+
+    this.isRotating = true;
+    const steps = sec.rotationSteps || 4;
+    sec.currentRotation = ((sec.currentRotation || 0) + direction + steps) % steps;
+
+    // Animate: flash the section tiles, then redraw
+    const flashGraphics = this.add.graphics();
+    flashGraphics.setDepth(300);
+    let alpha = 0.5;
+    const flashTimer = this.time.addEvent({
+      delay: 30, repeat: 5,
+      callback: () => {
+        flashGraphics.clear();
+        for (const tile of sec.tiles) {
+          const { x: sx, y: sy } = isoToScreen(tile.x, tile.y, tile.z||0, this.originX, this.originY);
+          const hw = TILE_W/2, hh = TILE_H/2;
+          flashGraphics.fillStyle(PALETTE.section_highlight, alpha);
+          flashGraphics.beginPath();
+          flashGraphics.moveTo(sx, sy-hh);
+          flashGraphics.lineTo(sx+hw, sy);
+          flashGraphics.lineTo(sx, sy+hh);
+          flashGraphics.lineTo(sx-hw, sy);
+          flashGraphics.closePath(); flashGraphics.fillPath();
+          alpha -= 0.08;
+        }
+        if (alpha <= 0) {
+          flashGraphics.destroy();
+          this.graph = this.lvMgr.buildGraph(this.levelData);
+          this.clearScene();
+          this.drawLevel();
+          this.drawPlayer();
+          this.isRotating = false;
+        }
+      }
+    });
+  }
+
+  checkGoal() {
+    const g = this.levelData.goal;
+    if (this.playerPos.x === g.x && this.playerPos.y === g.y) {
+      this.time.delayedCall(400, () => this.showLevelComplete());
+    }
+  }
+
+  showLevelComplete() {
+    const idx = this.lvMgr.currentIndex;
+    const isLast = idx >= 4;
+    document.getElementById('complete-msg').textContent =
+      isLast ? 'You savoured every drop. The end.' : 'The coffee awaits…';
+    document.getElementById('next-btn').style.display = isLast ? 'none' : 'block';
+    document.getElementById('level-complete').classList.add('show');
+  }
+
+  updateHUD() {
+    const d = this.levelData;
+    const idx = this.lvMgr.currentIndex;
+    document.getElementById('level-title').textContent = `Level ${idx+1} — ${d.name}`;
+    document.getElementById('level-counter').textContent = `${idx+1} / 5`;
+  }
+
+  setupInput() {
+    this.input.on('pointerdown', (ptr) => {
+      // Handled by individual tile/button listeners
+    });
+    // Keyboard rotation (for desktop testing)
+    this.input.keyboard.on('keydown-R', () => {
+      // Rotate first rotatable section
+      const sec = this.levelData.sections.find(s => s.rotatable);
+      if (sec) this.rotateSection(sec.id, 1);
+    });
+  }
+}
+
+// ─────────────────────────────────────────────
+//  GLOBAL: next level, hint
+// ─────────────────────────────────────────────
+let gameScene = null;
+
+function nextLevel() {
+  document.getElementById('level-complete').classList.remove('show');
+  const next = gameScene.lvMgr.currentIndex + 1;
+  if (next < 5) gameScene.loadLevel(next);
+}
+
+document.getElementById('hint-btn').addEventListener('click', () => {
+  if (!gameScene) return;
+  // Highlight all rotatable sections briefly
+  for (const sec of gameScene.levelData.sections) {
+    if (sec.rotatable) {
+      gameScene.time.delayedCall(0, () => {
+        const g = gameScene.add.graphics();
+        g.setDepth(250);
+        for (const tile of sec.tiles) {
+          const { x: sx, y: sy } = isoToScreen(tile.x, tile.y, tile.z||0, gameScene.originX, gameScene.originY);
+          g.lineStyle(2, 0xf5c842, 0.8);
+          g.strokeCircle(sx, sy, TILE_W * 0.4);
+        }
+        gameScene.time.delayedCall(1200, () => g.destroy());
+      });
+    }
+  }
+});
+
+// ─────────────────────────────────────────────
+//  PHASER CONFIG
+// ─────────────────────────────────────────────
+const config = {
+  type: Phaser.AUTO,
+  backgroundColor: PALETTE.bg,
+  scale: {
+    mode: Phaser.Scale.RESIZE,
+    parent: 'game-container',
+    width: '100%',
+    height: '100%',
+  },
+  scene: GameScene,
+  callbacks: {
+    postBoot: (game) => {
+      gameScene = game.scene.getScene('GameScene');
+    }
+  }
+};
+
+const game = new Phaser.Game(config);
+</script>
+</body>
+</html>

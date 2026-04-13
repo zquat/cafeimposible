@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Café Impossible — Level Editor</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --bg: #12100e;
+    --surface: #1e1a16;
+    --surface2: #2a241e;
+    --border: #3a3028;
+    --text: #c8b89a;
+    --text-dim: #6a5a48;
+    --accent: #c8a97a;
+    --accent2: #f5c842;
+    --danger: #c86050;
+    --goal: #f5c842;
+  }
+  html, body { width:100%; height:100%; background:var(--bg); color:var(--text); font-family:'Courier New',monospace; overflow:hidden; }
+
+  #app { display:grid; grid-template-columns:240px 1fr 280px; height:100vh; }
+
+  /* ── LEFT PANEL ── */
+  #left-panel {
+    background:var(--surface);
+    border-right:1px solid var(--border);
+    display:flex; flex-direction:column;
+    overflow-y:auto;
+  }
+  .panel-title {
+    padding:16px 18px 12px;
+    font-size:10px; letter-spacing:3px; text-transform:uppercase;
+    color:var(--accent); border-bottom:1px solid var(--border);
+  }
+  .section { padding:14px 18px; border-bottom:1px solid var(--border); }
+  .section label { display:block; font-size:10px; letter-spacing:2px; color:var(--text-dim); margin-bottom:6px; text-transform:uppercase; }
+  input[type=text], input[type=number], select {
+    width:100%; background:var(--surface2); border:1px solid var(--border);
+    color:var(--text); padding:7px 10px; font-size:12px; font-family:inherit;
+    border-radius:2px; outline:none;
+  }
+  input:focus, select:focus { border-color:var(--accent); }
+  .row { display:flex; gap:8px; }
+  .row > * { flex:1; }
+
+  /* Tool buttons */
+  .tool-grid { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+  .tool-btn {
+    background:var(--surface2); border:1px solid var(--border);
+    color:var(--text-dim); padding:8px 4px; font-size:10px; letter-spacing:1px;
+    text-transform:uppercase; cursor:pointer; text-align:center;
+    border-radius:2px; transition:all 0.15s;
+  }
+  .tool-btn:hover { border-color:var(--accent); color:var(--accent); }
+  .tool-btn.active { background:var(--accent); color:#1a1410; border-color:var(--accent); font-weight:bold; }
+  .tool-btn .icon { font-size:16px; display:block; margin-bottom:2px; }
+
+  /* Section list */
+  #section-list { display:flex; flex-direction:column; gap:6px; }
+  .sec-item {
+    background:var(--surface2); border:1px solid var(--border);
+    padding:8px 10px; border-radius:2px; cursor:pointer;
+    display:flex; align-items:center; justify-content:space-between;
+    transition:border-color 0.15s;
+  }
+  .sec-item:hover, .sec-item.active { border-color:var(--accent); }
+  .sec-item .sec-name { font-size:11px; }
+  .sec-item .sec-actions { display:flex; gap:4px; }
+  .sec-btn { background:none; border:none; color:var(--text-dim); cursor:pointer; font-size:14px; padding:0 2px; }
+  .sec-btn:hover { color:var(--accent); }
+
+  .add-btn {
+    background:transparent; border:1px dashed var(--border);
+    color:var(--text-dim); padding:8px; font-size:11px; letter-spacing:1px;
+    cursor:pointer; text-transform:uppercase; border-radius:2px; width:100%;
+    transition:all 0.15s;
+  }
+  .add-btn:hover { border-color:var(--accent); color:var(--accent); }
+
+  /* ── CANVAS AREA ── */
+  #canvas-area {
+    position:relative; overflow:hidden;
+    display:flex; align-items:center; justify-content:center;
+    background:var(--bg);
+  }
+  canvas#editor-canvas { display:block; cursor:crosshair; }
+  #canvas-hint {
+    position:absolute; bottom:16px; left:50%; transform:translateX(-50%);
+    font-size:10px; letter-spacing:2px; color:var(--text-dim);
+    text-transform:uppercase; pointer-events:none;
+  }
+  #zoom-controls {
+    position:absolute; bottom:16px; right:16px;
+    display:flex; gap:6px;
+  }
+  .zoom-btn {
+    width:32px; height:32px; background:var(--surface);
+    border:1px solid var(--border); color:var(--text); font-size:16px;
+    cursor:pointer; border-radius:2px; display:flex; align-items:center; justify-content:center;
+  }
+  .zoom-btn:hover { border-color:var(--accent); color:var(--accent); }
+
+  /* ── RIGHT PANEL ── */
+  #right-panel {
+    background:var(--surface);
+    border-left:1px solid var(--border);
+    display:flex; flex-direction:column;
+    overflow-y:auto;
+  }
+  #json-output {
+    flex:1; background:var(--surface2); border:none;
+    color:#8ab888; font-size:10px; font-family:'Courier New',monospace;
+    padding:14px; resize:none; outline:none; line-height:1.5;
+    border-top:1px solid var(--border);
+  }
+  .action-btn {
+    margin:10px 18px; padding:10px;
+    background:transparent; border:1px solid var(--accent);
+    color:var(--accent); font-size:10px; letter-spacing:2px;
+    text-transform:uppercase; cursor:pointer; border-radius:2px;
+    transition:all 0.15s; font-family:inherit;
+  }
+  .action-btn:hover { background:rgba(200,169,122,0.12); }
+  .action-btn.danger { border-color:var(--danger); color:var(--danger); }
+  .action-btn.danger:hover { background:rgba(200,96,80,0.1); }
+
+  #tile-info {
+    padding:14px 18px;
+    min-height:80px;
+    border-bottom:1px solid var(--border);
+  }
+  #tile-info .ti-label { font-size:10px; letter-spacing:2px; color:var(--text-dim); text-transform:uppercase; margin-bottom:8px; }
+  #tile-info .ti-val { font-size:12px; color:var(--text); }
+
+  .checkbox-row { display:flex; align-items:center; gap:8px; }
+  .checkbox-row input[type=checkbox] { width:14px; height:14px; accent-color:var(--accent); }
+  .checkbox-row label { font-size:11px; letter-spacing:1px; text-transform:uppercase; color:var(--text-dim); }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ── LEFT ── -->
+  <div id="left-panel">
+    <div class="panel-title">☕ Level Editor</div>
+
+    <div class="section">
+      <label>Level Name</label>
+      <input type="text" id="lv-name" value="My Level" oninput="syncMeta()">
+    </div>
+    <div class="section">
+      <label>Grid Size</label>
+      <div class="row">
+        <div><label>W</label><input type="number" id="lv-w" value="9" min="5" max="20" oninput="syncMeta()"></div>
+        <div><label>H</label><input type="number" id="lv-h" value="9" min="5" max="20" oninput="syncMeta()"></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <label>Paint Tool</label>
+      <div class="tool-grid">
+        <div class="tool-btn active" data-tool="floor" onclick="setTool('floor')">
+          <span class="icon">⬜</span>Floor
+        </div>
+        <div class="tool-btn" data-tool="stair" onclick="setTool('stair')">
+          <span class="icon">📐</span>Stair
+        </div>
+        <div class="tool-btn" data-tool="wall" onclick="setTool('wall')">
+          <span class="icon">🧱</span>Wall
+        </div>
+        <div class="tool-btn" data-tool="goal" onclick="setTool('goal')">
+          <span class="icon">☕</span>Goal
+        </div>
+        <div class="tool-btn" data-tool="player" onclick="setTool('player')">
+          <span class="icon">🧍</span>Player
+        </div>
+        <div class="tool-btn" data-tool="erase" onclick="setTool('erase')">
+          <span class="icon">🗑️</span>Erase
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <label>Height (Z)</label>
+      <input type="number" id="paint-z" value="0" min="0" max="10">
+    </div>
+
+    <div class="section">
+      <label>Active Section</label>
+      <div id="section-list"></div>
+      <button class="add-btn" onclick="addSection()" style="margin-top:8px">+ Add Section</button>
+    </div>
+
+    <div class="section" id="section-props" style="display:none">
+      <label>Section Properties</label>
+      <div style="margin-bottom:8px">
+        <label>Name</label>
+        <input type="text" id="sec-id" oninput="syncSectionProp('id')">
+      </div>
+      <div class="checkbox-row" style="margin-bottom:8px">
+        <input type="checkbox" id="sec-rotatable" onchange="syncSectionProp('rotatable')">
+        <label for="sec-rotatable">Rotatable</label>
+      </div>
+      <div class="checkbox-row">
+        <input type="checkbox" id="sec-gravity" onchange="syncSectionProp('gravityShift')">
+        <label for="sec-gravity">Gravity Shift</label>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── CANVAS ── -->
+  <div id="canvas-area">
+    <canvas id="editor-canvas"></canvas>
+    <div id="canvas-hint">Tap/click to paint • Scroll to zoom</div>
+    <div id="zoom-controls">
+      <button class="zoom-btn" onclick="zoom(1.2)">+</button>
+      <button class="zoom-btn" onclick="zoom(0.8)">−</button>
+      <button class="zoom-btn" onclick="resetView()">⌂</button>
+    </div>
+  </div>
+
+  <!-- ── RIGHT ── -->
+  <div id="right-panel">
+    <div class="panel-title">Export / Import</div>
+    <div id="tile-info">
+      <div class="ti-label">Hover a tile to inspect</div>
+      <div class="ti-val" id="tile-info-val">—</div>
+    </div>
+    <button class="action-btn" onclick="exportJSON()">⬇ Export JSON</button>
+    <button class="action-btn" onclick="importJSON()">⬆ Import JSON</button>
+    <button class="action-btn" onclick="copyJSON()">⎘ Copy to Clipboard</button>
+    <button class="action-btn danger" onclick="clearLevel()">✕ Clear Level</button>
+    <textarea id="json-output" readonly spellcheck="false"></textarea>
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────────────────────
+//  STATE
+// ─────────────────────────────────────────────
+const TILE_W = 64, TILE_H = 32, TILE_DEPTH = 20, Z_STEP = 28;
+
+const PAL = {
+  floor:  { top:0xd4b896, left:0x9c7d5e, right:0xb8966e },
+  stair:  { top:0xcca882, left:0x8a6e4f, right:0xa07b5a },
+  wall:   { top:0xe8d4b8, left:0x6b4f34, right:0x7a5c3e },
+  goal:   { top:0xf5c842, left:0xc4920a, right:0xd9a81a },
+  player: { top:0x88ccff, left:0x4488aa, right:0x66aacc },
+};
+
+const SEC_COLORS = ['#c8a97a','#88ccaa','#cc88aa','#88aacc','#cccc88','#cc9988'];
+
+let state = {
+  name: 'My Level',
+  width: 9, height: 9,
+  playerStart: { x:1, y:7, z:0 },
+  goal: { x:7, y:1, z:0 },
+  sections: [
+    { id:'base', pivot:{x:4,y:4}, rotatable:false, rotationSteps:4, currentRotation:0, tiles:[], connections:[] }
+  ],
+  activeSectionIdx: 0,
+  activeTool: 'floor',
+  scale: 1,
+  offsetX: 0, offsetY: 0,
+  dragging: false, dragStart: null, dragOffset: null,
+  hoveredTile: null,
+};
+
+const canvas = document.getElementById('editor-canvas');
+const ctx = canvas.getContext('2d');
+
+// ─────────────────────────────────────────────
+//  ISO HELPERS
+// ─────────────────────────────────────────────
+function toHex(n) {
+  return '#' + n.toString(16).padStart(6,'0');
+}
+
+function isoToScreen(gx, gy, gz, ox, oy) {
+  return {
+    x: ox + (gx - gy) * (TILE_W / 2),
+    y: oy + (gx + gy) * (TILE_H / 2) - gz * Z_STEP
+  };
+}
+
+function screenToGrid(sx, sy, ox, oy) {
+  // Inverse of isoToScreen
+  const dx = sx - ox, dy = sy - oy;
+  const gx = (dx / (TILE_W/2) + dy / (TILE_H/2)) / 2;
+  const gy = (dy / (TILE_H/2) - dx / (TILE_W/2)) / 2;
+  return { x: Math.round(gx), y: Math.round(gy) };
+}
+
+// ─────────────────────────────────────────────
+//  CANVAS SETUP
+// ─────────────────────────────────────────────
+function resizeCanvas() {
+  const area = document.getElementById('canvas-area');
+  canvas.width = area.clientWidth;
+  canvas.height = area.clientHeight;
+  if (state.offsetX === 0 && state.offsetY === 0) resetView();
+  else redraw();
+}
+window.addEventListener('resize', resizeCanvas);
+
+function resetView() {
+  const cx = state.width / 2, cy = state.height / 2;
+  const screenCX = (cx - cy) * (TILE_W/2);
+  const screenCY = (cx + cy) * (TILE_H/2);
+  state.offsetX = canvas.width/2 - screenCX;
+  state.offsetY = canvas.height/2 - screenCY + canvas.height * 0.05;
+  state.scale = 1;
+  redraw();
+}
+
+function zoom(factor) {
+  state.scale = Math.max(0.4, Math.min(3, state.scale * factor));
+  redraw();
+}
+
+// ─────────────────────────────────────────────
+//  DRAW
+// ─────────────────────────────────────────────
+function redraw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.save();
+  ctx.translate(canvas.width/2, canvas.height/2);
+  ctx.scale(state.scale, state.scale);
+  ctx.translate(-canvas.width/2, -canvas.height/2);
+
+  // Draw grid ghost
+  for (let gx = 0; gx < state.width; gx++) {
+    for (let gy = 0; gy < state.height; gy++) {
+      const { x:sx, y:sy } = isoToScreen(gx, gy, 0, state.offsetX, state.offsetY);
+      const hw = TILE_W/2, hh = TILE_H/2;
+      ctx.beginPath();
+      ctx.moveTo(sx, sy-hh); ctx.lineTo(sx+hw, sy);
+      ctx.lineTo(sx, sy+hh); ctx.lineTo(sx-hw, sy);
+      ctx.closePath();
+      ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+  }
+
+  // Collect all tiles with section info, sort by depth
+  let allTiles = [];
+  state.sections.forEach((sec, si) => {
+    sec.tiles.forEach(tile => {
+      allTiles.push({ ...tile, secIdx: si, secId: sec.id });
+    });
+  });
+  // Add virtual tiles for player/goal
+  allTiles.push({ x:state.playerStart.x, y:state.playerStart.y, z:state.playerStart.z||0, type:'player', secIdx:-1, secId:'' });
+  if (state.goal) allTiles.push({ x:state.goal.x, y:state.goal.y, z:0, type:'goal', secIdx:-1, secId:'' });
+
+  allTiles.sort((a,b) => (a.x+a.y+a.z*0.5) - (b.x+b.y+b.z*0.5));
+
+  for (const tile of allTiles) {
+    drawTile(tile);
+  }
+
+  ctx.restore();
+  updateJSON();
+}
+
+function drawTile(tile) {
+  const {x:sx, y:sy} = isoToScreen(tile.x, tile.y, tile.z||0, state.offsetX, state.offsetY);
+  const hw = TILE_W/2, hh = TILE_H/2;
+  const depth = tile.type === 'wall' ? TILE_DEPTH*3 : TILE_DEPTH;
+  const pal = PAL[tile.type] || PAL.floor;
+
+  const isActive = tile.secIdx === state.activeSectionIdx;
+  const isHovered = state.hoveredTile &&
+    state.hoveredTile.x === tile.x && state.hoveredTile.y === tile.y && state.hoveredTile.z === (tile.z||0);
+
+  const alpha = tile.secIdx >= 0 && !isActive ? 0.45 : 1;
+  ctx.globalAlpha = alpha;
+
+  // Top
+  ctx.fillStyle = toHex(pal.top);
+  if (isHovered) ctx.fillStyle = '#fffbe8';
+  ctx.beginPath();
+  ctx.moveTo(sx, sy-hh); ctx.lineTo(sx+hw, sy);
+  ctx.lineTo(sx, sy+hh); ctx.lineTo(sx-hw, sy);
+  ctx.closePath(); ctx.fill();
+
+  // Left
+  ctx.fillStyle = toHex(pal.left);
+  ctx.beginPath();
+  ctx.moveTo(sx-hw, sy); ctx.lineTo(sx, sy+hh);
+  ctx.lineTo(sx, sy+hh+depth); ctx.lineTo(sx-hw, sy+depth);
+  ctx.closePath(); ctx.fill();
+
+  // Right
+  ctx.fillStyle = toHex(pal.right);
+  ctx.beginPath();
+  ctx.moveTo(sx, sy+hh); ctx.lineTo(sx+hw, sy);
+  ctx.lineTo(sx+hw, sy+depth); ctx.lineTo(sx, sy+hh+depth);
+  ctx.closePath(); ctx.fill();
+
+  // Outline
+  ctx.strokeStyle = 'rgba(0,0,0,0.2)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(sx, sy-hh); ctx.lineTo(sx+hw, sy);
+  ctx.lineTo(sx, sy+hh); ctx.lineTo(sx-hw, sy);
+  ctx.closePath(); ctx.stroke();
+
+  // Section color dot (active sections get a colored indicator)
+  if (tile.secIdx >= 0 && isActive) {
+    const col = SEC_COLORS[tile.secIdx % SEC_COLORS.length];
+    ctx.fillStyle = col;
+    ctx.globalAlpha = 0.5;
+    ctx.beginPath();
+    ctx.arc(sx, sy - hh/2, 4, 0, Math.PI*2);
+    ctx.fill();
+  }
+
+  // Labels
+  ctx.globalAlpha = 1;
+  if (tile.type === 'goal') {
+    ctx.font = '18px serif';
+    ctx.fillText('☕', sx - 10, sy - hh/2 + 6);
+  }
+  if (tile.type === 'player') {
+    ctx.font = '18px serif';
+    ctx.fillText('🧍', sx - 10, sy - hh/2 + 6);
+  }
+
+  ctx.globalAlpha = 1;
+}
+
+// ─────────────────────────────────────────────
+//  INPUT
+// ─────────────────────────────────────────────
+canvas.addEventListener('mousedown', e => {
+  if (e.button === 1 || e.button === 2) {
+    state.dragging = true;
+    state.dragStart = { x:e.clientX, y:e.clientY };
+    state.dragOffset = { x:state.offsetX, y:state.offsetY };
+    return;
+  }
+  paintAt(e.clientX - canvas.getBoundingClientRect().left,
+           e.clientY - canvas.getBoundingClientRect().top);
+});
+
+canvas.addEventListener('mousemove', e => {
+  const rect = canvas.getBoundingClientRect();
+  const cx = e.clientX - rect.left, cy = e.clientY - rect.top;
+
+  if (state.dragging) {
+    state.offsetX = state.dragOffset.x + (e.clientX - state.dragStart.x);
+    state.offsetY = state.dragOffset.y + (e.clientY - state.dragStart.y);
+    redraw(); return;
+  }
+
+  // Adjust for scale
+  const scx = canvas.width/2 + (cx - canvas.width/2) / state.scale;
+  const scy = canvas.height/2 + (cy - canvas.height/2) / state.scale;
+  const g = screenToGrid(scx, scy, state.offsetX, state.offsetY);
+  state.hoveredTile = { ...g, z: parseInt(document.getElementById('paint-z').value)||0 };
+
+  document.getElementById('tile-info-val').textContent =
+    `Grid (${g.x}, ${g.y})  Z:${state.hoveredTile.z}`;
+  redraw();
+
+  if (e.buttons === 1) paintAt(cx, cy);
+});
+
+canvas.addEventListener('mouseup', () => { state.dragging = false; });
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  zoom(e.deltaY < 0 ? 1.1 : 0.9);
+}, { passive:false });
+
+function paintAt(cx, cy) {
+  const scx = canvas.width/2 + (cx - canvas.width/2) / state.scale;
+  const scy = canvas.height/2 + (cy - canvas.height/2) / state.scale;
+  const g = screenToGrid(scx, scy, state.offsetX, state.offsetY);
+  if (g.x < 0 || g.y < 0 || g.x >= state.width || g.y >= state.height) return;
+
+  const z = parseInt(document.getElementById('paint-z').value) || 0;
+  const tool = state.activeTool;
+
+  if (tool === 'player') {
+    state.playerStart = { x:g.x, y:g.y, z };
+    redraw(); return;
+  }
+  if (tool === 'goal') {
+    state.goal = { x:g.x, y:g.y, z };
+    // Add goal tile to active section too
+    paintTile(g.x, g.y, z, 'goal');
+    return;
+  }
+  if (tool === 'erase') {
+    eraseTile(g.x, g.y, z);
+    return;
+  }
+
+  paintTile(g.x, g.y, z, tool);
+}
+
+function paintTile(gx, gy, gz, type) {
+  const sec = state.sections[state.activeSectionIdx];
+  // Remove existing tile at same position in this section
+  sec.tiles = sec.tiles.filter(t => !(t.x===gx && t.y===gy && t.z===gz));
+  sec.tiles.push({ x:gx, y:gy, z:gz, type });
+  redraw();
+}
+
+function eraseTile(gx, gy, gz) {
+  const sec = state.sections[state.activeSectionIdx];
+  sec.tiles = sec.tiles.filter(t => !(t.x===gx && t.y===gy && t.z===gz));
+  redraw();
+}
+
+// ─────────────────────────────────────────────
+//  UI CONTROLS
+// ─────────────────────────────────────────────
+function setTool(tool) {
+  state.activeTool = tool;
+  document.querySelectorAll('.tool-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.tool === tool);
+  });
+}
+
+function syncMeta() {
+  state.name = document.getElementById('lv-name').value;
+  state.width = parseInt(document.getElementById('lv-w').value) || 9;
+  state.height = parseInt(document.getElementById('lv-h').value) || 9;
+  redraw();
+}
+
+function syncSectionProp(prop) {
+  const sec = state.sections[state.activeSectionIdx];
+  if (!sec) return;
+  if (prop === 'id') sec.id = document.getElementById('sec-id').value;
+  if (prop === 'rotatable') sec.rotatable = document.getElementById('sec-rotatable').checked;
+  if (prop === 'gravityShift') sec.gravityShift = document.getElementById('sec-gravity').checked;
+  renderSectionList();
+  redraw();
+}
+
+function addSection() {
+  const id = 'section_' + (state.sections.length);
+  state.sections.push({
+    id, pivot:{x:Math.floor(state.width/2), y:Math.floor(state.height/2)},
+    rotatable:true, rotationSteps:4, currentRotation:0, tiles:[], connections:[]
+  });
+  setActiveSection(state.sections.length - 1);
+}
+
+function setActiveSection(idx) {
+  state.activeSectionIdx = idx;
+  renderSectionList();
+  const sec = state.sections[idx];
+  document.getElementById('section-props').style.display = sec ? 'block' : 'none';
+  if (sec) {
+    document.getElementById('sec-id').value = sec.id;
+    document.getElementById('sec-rotatable').checked = !!sec.rotatable;
+    document.getElementById('sec-gravity').checked = !!sec.gravityShift;
+  }
+  redraw();
+}
+
+function deleteSection(idx, e) {
+  e.stopPropagation();
+  if (state.sections.length <= 1) return alert('Need at least one section.');
+  if (!confirm(`Delete section "${state.sections[idx].id}"?`)) return;
+  state.sections.splice(idx, 1);
+  setActiveSection(Math.min(idx, state.sections.length-1));
+}
+
+function renderSectionList() {
+  const list = document.getElementById('section-list');
+  list.innerHTML = '';
+  state.sections.forEach((sec, i) => {
+    const el = document.createElement('div');
+    el.className = 'sec-item' + (i === state.activeSectionIdx ? ' active' : '');
+    const col = SEC_COLORS[i % SEC_COLORS.length];
+    el.innerHTML = `
+      <span style="display:flex;align-items:center;gap:8px">
+        <span style="width:8px;height:8px;border-radius:50%;background:${col};display:inline-block"></span>
+        <span class="sec-name">${sec.id}${sec.rotatable?' ↻':''}</span>
+      </span>
+      <span class="sec-actions">
+        <button class="sec-btn" title="Delete" onclick="deleteSection(${i},event)">✕</button>
+      </span>
+    `;
+    el.addEventListener('click', () => setActiveSection(i));
+    list.appendChild(el);
+  });
+}
+
+// ─────────────────────────────────────────────
+//  JSON EXPORT / IMPORT
+// ─────────────────────────────────────────────
+function buildExportData() {
+  return {
+    id: state.name.toLowerCase().replace(/\s+/g,'_'),
+    name: state.name,
+    width: state.width,
+    height: state.height,
+    playerStart: state.playerStart,
+    goal: state.goal,
+    sections: state.sections.map(sec => ({
+      id: sec.id,
+      pivot: sec.pivot,
+      rotatable: sec.rotatable || false,
+      rotationSteps: sec.rotationSteps || 4,
+      currentRotation: 0,
+      gravityShift: sec.gravityShift || false,
+      tiles: sec.tiles,
+      connections: sec.connections || []
+    }))
+  };
+}
+
+function updateJSON() {
+  document.getElementById('json-output').value = JSON.stringify(buildExportData(), null, 2);
+}
+
+function exportJSON() {
+  const data = buildExportData();
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type:'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = (data.id || 'level') + '.json';
+  a.click();
+}
+
+function copyJSON() {
+  const txt = document.getElementById('json-output').value;
+  navigator.clipboard.writeText(txt).then(() => {
+    const btn = event.target;
+    btn.textContent = '✓ Copied!';
+    setTimeout(() => btn.textContent = '⎘ Copy to Clipboard', 1500);
+  });
+}
+
+function importJSON() {
+  const txt = prompt('Paste your level JSON here:');
+  if (!txt) return;
+  try {
+    const data = JSON.parse(txt);
+    state.name = data.name || 'Imported Level';
+    state.width = data.width || 9;
+    state.height = data.height || 9;
+    state.playerStart = data.playerStart || {x:1,y:7,z:0};
+    state.goal = data.goal || {x:7,y:1,z:0};
+    state.sections = data.sections || [];
+    document.getElementById('lv-name').value = state.name;
+    document.getElementById('lv-w').value = state.width;
+    document.getElementById('lv-h').value = state.height;
+    setActiveSection(0);
+    resetView();
+  } catch(e) {
+    alert('Invalid JSON: ' + e.message);
+  }
+}
+
+function clearLevel() {
+  if (!confirm('Clear all tiles?')) return;
+  state.sections.forEach(s => s.tiles = []);
+  redraw();
+}
+
+// ─────────────────────────────────────────────
+//  INIT
+// ─────────────────────────────────────────────
+resizeCanvas();
+renderSectionList();
+setActiveSection(0);
+</script>
+</body>
+</html>

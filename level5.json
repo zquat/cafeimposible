@@ -1,0 +1,139 @@
+{
+  "id": "level5",
+  "name": "The Perfect Cup",
+  "width": 11,
+  "height": 11,
+  "playerStart": { "x": 1, "y": 9, "z": 0 },
+  "goal": { "x": 9, "y": 1, "z": 0 },
+  "sections": [
+    {
+      "id": "base",
+      "pivot": { "x": 5, "y": 5 },
+      "rotatable": false,
+      "tiles": [
+        { "x": 1, "y": 9, "z": 0, "type": "floor" },
+        { "x": 2, "y": 9, "z": 0, "type": "floor" },
+        { "x": 2, "y": 8, "z": 0, "type": "floor" },
+        { "x": 8, "y": 2, "z": 0, "type": "floor" },
+        { "x": 8, "y": 1, "z": 0, "type": "floor" },
+        { "x": 9, "y": 1, "z": 0, "type": "goal" }
+      ]
+    },
+    {
+      "id": "section_a",
+      "pivot": { "x": 3, "y": 7 },
+      "rotatable": true,
+      "rotationSteps": 4,
+      "currentRotation": 0,
+      "tiles": [
+        { "x": 3, "y": 7, "z": 0, "type": "floor" },
+        { "x": 3, "y": 6, "z": 0, "type": "stair", "face": "top" },
+        { "x": 3, "y": 5, "z": 1, "type": "floor", "face": "top" }
+      ],
+      "connections": [
+        {
+          "rotation": 0,
+          "links": [
+            { "from": { "x": 2, "y": 8 }, "to": { "x": 3, "y": 7 } },
+            { "from": { "x": 3, "y": 7 }, "to": { "x": 3, "y": 6 } },
+            { "from": { "x": 3, "y": 6 }, "to": { "x": 3, "y": 5 } }
+          ]
+        },
+        { "rotation": 1, "links": [] },
+        {
+          "rotation": 2,
+          "links": [
+            { "from": { "x": 2, "y": 8 }, "to": { "x": 3, "y": 7 } },
+            { "from": { "x": 3, "y": 7 }, "to": { "x": 3, "y": 6 } },
+            { "from": { "x": 3, "y": 6 }, "to": { "x": 3, "y": 5 } }
+          ]
+        },
+        { "rotation": 3, "links": [] }
+      ]
+    },
+    {
+      "id": "section_b",
+      "pivot": { "x": 5, "y": 5 },
+      "rotatable": true,
+      "rotationSteps": 4,
+      "currentRotation": 0,
+      "gravityShift": true,
+      "tiles": [
+        { "x": 4, "y": 5, "z": 1, "type": "floor", "face": "top" },
+        { "x": 5, "y": 5, "z": 1, "type": "floor", "face": "top" },
+        { "x": 5, "y": 4, "z": 1, "type": "wall",  "face": "right" },
+        { "x": 6, "y": 5, "z": 1, "type": "floor", "face": "top" }
+      ],
+      "connections": [
+        {
+          "rotation": 0,
+          "links": [
+            { "from": { "x": 3, "y": 5 }, "to": { "x": 4, "y": 5 } },
+            { "from": { "x": 4, "y": 5 }, "to": { "x": 5, "y": 5 } },
+            { "from": { "x": 5, "y": 5 }, "to": { "x": 6, "y": 5 } }
+          ]
+        },
+        {
+          "rotation": 1,
+          "links": [
+            { "from": { "x": 3, "y": 5 }, "to": { "x": 4, "y": 5 } },
+            { "from": { "x": 4, "y": 5 }, "to": { "x": 5, "y": 5 } },
+            { "from": { "x": 5, "y": 5 }, "to": { "x": 5, "y": 4 } },
+            { "from": { "x": 5, "y": 4 }, "to": { "x": 6, "y": 4 } }
+          ]
+        },
+        {
+          "rotation": 2,
+          "links": [
+            { "from": { "x": 3, "y": 5 }, "to": { "x": 4, "y": 5 } },
+            { "from": { "x": 4, "y": 5 }, "to": { "x": 5, "y": 5 } },
+            { "from": { "x": 5, "y": 5 }, "to": { "x": 6, "y": 5 } }
+          ]
+        },
+        {
+          "rotation": 3,
+          "links": [
+            { "from": { "x": 3, "y": 5 }, "to": { "x": 4, "y": 5 } },
+            { "from": { "x": 4, "y": 5 }, "to": { "x": 5, "y": 5 } },
+            { "from": { "x": 5, "y": 5 }, "to": { "x": 5, "y": 4 } },
+            { "from": { "x": 5, "y": 4 }, "to": { "x": 6, "y": 4 } }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "section_c",
+      "pivot": { "x": 7, "y": 3 },
+      "rotatable": true,
+      "rotationSteps": 4,
+      "currentRotation": 0,
+      "tiles": [
+        { "x": 7, "y": 5, "z": 1, "type": "floor", "face": "top" },
+        { "x": 7, "y": 4, "z": 1, "type": "stair", "face": "top" },
+        { "x": 7, "y": 3, "z": 0, "type": "floor" }
+      ],
+      "connections": [
+        {
+          "rotation": 0,
+          "links": [
+            { "from": { "x": 6, "y": 5 }, "to": { "x": 7, "y": 5 } },
+            { "from": { "x": 7, "y": 5 }, "to": { "x": 7, "y": 4 } },
+            { "from": { "x": 7, "y": 4 }, "to": { "x": 7, "y": 3 } },
+            { "from": { "x": 7, "y": 3 }, "to": { "x": 8, "y": 2 } }
+          ]
+        },
+        { "rotation": 1, "links": [] },
+        {
+          "rotation": 2,
+          "links": [
+            { "from": { "x": 6, "y": 5 }, "to": { "x": 7, "y": 5 } },
+            { "from": { "x": 7, "y": 5 }, "to": { "x": 7, "y": 4 } },
+            { "from": { "x": 7, "y": 4 }, "to": { "x": 7, "y": 3 } },
+            { "from": { "x": 7, "y": 3 }, "to": { "x": 8, "y": 2 } }
+          ]
+        },
+        { "rotation": 3, "links": [] }
+      ]
+    }
+  ]
+}

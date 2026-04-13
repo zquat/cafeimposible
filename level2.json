@@ -1,0 +1,73 @@
+{
+  "id": "level2",
+  "name": "Winding Path",
+  "width": 9,
+  "height": 9,
+  "playerStart": { "x": 1, "y": 7, "z": 0 },
+  "goal": { "x": 7, "y": 1, "z": 0 },
+  "sections": [
+    {
+      "id": "base",
+      "pivot": { "x": 4, "y": 4 },
+      "rotatable": false,
+      "tiles": [
+        { "x": 1, "y": 7, "z": 0, "type": "floor" },
+        { "x": 2, "y": 7, "z": 0, "type": "floor" },
+        { "x": 2, "y": 6, "z": 0, "type": "floor" },
+        { "x": 6, "y": 2, "z": 0, "type": "floor" },
+        { "x": 7, "y": 2, "z": 0, "type": "floor" },
+        { "x": 7, "y": 1, "z": 0, "type": "goal" }
+      ]
+    },
+    {
+      "id": "penrose_loop",
+      "pivot": { "x": 4, "y": 4 },
+      "rotatable": true,
+      "rotationSteps": 4,
+      "currentRotation": 0,
+      "tiles": [
+        { "x": 2, "y": 5, "z": 0, "type": "stair", "face": "top" },
+        { "x": 3, "y": 5, "z": 1, "type": "stair", "face": "top" },
+        { "x": 4, "y": 5, "z": 2, "type": "stair", "face": "top" },
+        { "x": 4, "y": 4, "z": 2, "type": "floor", "face": "top" },
+        { "x": 4, "y": 3, "z": 2, "type": "stair", "face": "top" },
+        { "x": 5, "y": 3, "z": 1, "type": "stair", "face": "top" },
+        { "x": 6, "y": 3, "z": 0, "type": "stair", "face": "top" },
+        { "x": 6, "y": 4, "z": 0, "type": "floor", "face": "top" },
+        { "x": 6, "y": 5, "z": 0, "type": "floor", "face": "top" }
+      ],
+      "connections": [
+        {
+          "rotation": 0,
+          "links": [
+            { "from": { "x": 2, "y": 6 }, "to": { "x": 2, "y": 5 } },
+            { "from": { "x": 2, "y": 5 }, "to": { "x": 3, "y": 5 } },
+            { "from": { "x": 3, "y": 5 }, "to": { "x": 4, "y": 5 } },
+            { "from": { "x": 4, "y": 5 }, "to": { "x": 4, "y": 4 } },
+            { "from": { "x": 4, "y": 4 }, "to": { "x": 4, "y": 3 } },
+            { "from": { "x": 4, "y": 3 }, "to": { "x": 5, "y": 3 } },
+            { "from": { "x": 5, "y": 3 }, "to": { "x": 6, "y": 3 } },
+            { "from": { "x": 6, "y": 3 }, "to": { "x": 6, "y": 4 } },
+            { "from": { "x": 6, "y": 4 }, "to": { "x": 6, "y": 5 } },
+            { "from": { "x": 6, "y": 5 }, "to": { "x": 6, "y": 2 } }
+          ]
+        },
+        {
+          "rotation": 1,
+          "links": []
+        },
+        {
+          "rotation": 2,
+          "links": [
+            { "from": { "x": 2, "y": 6 }, "to": { "x": 2, "y": 5 } },
+            { "from": { "x": 6, "y": 5 }, "to": { "x": 6, "y": 2 } }
+          ]
+        },
+        {
+          "rotation": 3,
+          "links": []
+        }
+      ]
+    }
+  ]
+}
