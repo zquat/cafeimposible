@@ -393,67 +393,52 @@ function drawPlayer(sx,sy,bobY){
 }
 
 // ═══════════════════════════════════════════════════════
-//  RENDER SECTION TO OFFSCREEN CANVAS
-//  Used both for normal drawing and rotation animation.
-//  Returns {offscreen, pivotScreenX, pivotScreenY}
+//  DRAW SECTION TILES with an arbitrary ctx transform already applied.
+//  Each tile is positioned relative to the current ctx origin.
+//  pivotSX/pivotSY are the pivot's screen coords (pre-transform world space).
 // ═══════════════════════════════════════════════════════
-function renderSectionOffscreen(sec,secIdx,hoverTile){
-  // Find bounding box in screen space
-  let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
-  for(const t of sec.tiles){
-    const et=effTile(t,sec);
-    const{x:sx,y:sy}=iso(et.x,et.y,et.z,OX,OY);
-    const hw=TW/2,depth=TD+(t.type==='wall'?TD*2:0);
-    minX=Math.min(minX,sx-hw-2); maxX=Math.max(maxX,sx+hw+2);
-    minY=Math.min(minY,sy-TH/2-2); maxY=Math.max(maxY,sy+TH/2+depth+2);
-  }
-  const pad=20;
-  minX-=pad;minY-=pad;maxX+=pad;maxY+=pad;
-  const ow=Math.ceil(maxX-minX),oh=Math.ceil(maxY-minY);
+function drawSectionTiles(sec, secIdx, angle){
+  // Pivot in world screen space
+  const pivot = sec.pivot || {x:sec.tiles[0].x, y:sec.tiles[0].y};
+  const pivZ  = (sec.tiles[0]?.z||0) + (sec.zOffset||0);
+  const{x:pvx, y:pvy} = iso(pivot.x, pivot.y, pivZ, OX, OY);
 
-  const off=document.createElement('canvas');
-  off.width=ow; off.height=oh;
-  const oc=off.getContext('2d');
+  const sorted = [...sec.tiles].sort((a,b)=>(a.x+a.y+(a.z||0)*.01)-(b.x+b.y+(b.z||0)*.01));
 
-  // Sort tiles painter-order
-  const sorted=[...sec.tiles].sort((a,b)=>(a.x+a.y+(a.z||0)*.01)-(b.x+b.y+(b.z||0)*.01));
+  ctx.save();
+  // Rotate around the pivot's screen position
+  ctx.translate(pvx, pvy);
+  ctx.rotate(angle);
+  ctx.translate(-pvx, -pvy);
 
   for(const t of sorted){
-    const et=effTile(t,sec);
-    const{x:sx,y:sy}=iso(et.x,et.y,et.z,OX,OY);
-    const lx=sx-minX, ly=sy-minY;
-    const isHov=hoverTile&&hoverTile.x===et.x&&hoverTile.y===et.y;
-    const[pt,pl,pr]=palFor(secIdx,t.type,isHov);
-    const hw=TW/2,hh=TH/2;
-    const depth=t.type==='wall'?TD*3:TD;
+    const et = effTile(t, sec);
+    const{x:sx, y:sy} = iso(et.x, et.y, et.z, OX, OY);
+    const[pt,pl,pr] = palFor(secIdx, t.type, false);
+    const hw=TW/2, hh=TH/2, depth = t.type==='wall' ? TD*3 : TD;
 
-    oc.fillStyle=pt;
-    oc.beginPath();oc.moveTo(lx,ly-hh);oc.lineTo(lx+hw,ly);
-    oc.lineTo(lx,ly+hh);oc.lineTo(lx-hw,ly);oc.closePath();oc.fill();
+    ctx.fillStyle=pt;
+    ctx.beginPath();ctx.moveTo(sx,sy-hh);ctx.lineTo(sx+hw,sy);
+    ctx.lineTo(sx,sy+hh);ctx.lineTo(sx-hw,sy);ctx.closePath();ctx.fill();
 
-    oc.fillStyle=pl;
-    oc.beginPath();oc.moveTo(lx-hw,ly);oc.lineTo(lx,ly+hh);
-    oc.lineTo(lx,ly+hh+depth);oc.lineTo(lx-hw,ly+depth);oc.closePath();oc.fill();
+    ctx.fillStyle=pl;
+    ctx.beginPath();ctx.moveTo(sx-hw,sy);ctx.lineTo(sx,sy+hh);
+    ctx.lineTo(sx,sy+hh+depth);ctx.lineTo(sx-hw,sy+depth);ctx.closePath();ctx.fill();
 
-    oc.fillStyle=pr;
-    oc.beginPath();oc.moveTo(lx,ly+hh);oc.lineTo(lx+hw,ly);
-    oc.lineTo(lx+hw,ly+depth);oc.lineTo(lx,ly+hh+depth);oc.closePath();oc.fill();
+    ctx.fillStyle=pr;
+    ctx.beginPath();ctx.moveTo(sx,sy+hh);ctx.lineTo(sx+hw,sy);
+    ctx.lineTo(sx+hw,sy+depth);ctx.lineTo(sx,sy+hh+depth);ctx.closePath();ctx.fill();
 
-    oc.strokeStyle='rgba(0,0,0,0.18)';oc.lineWidth=1;
-    oc.beginPath();oc.moveTo(lx,ly-hh);oc.lineTo(lx+hw,ly);
-    oc.lineTo(lx,ly+hh);oc.lineTo(lx-hw,ly);oc.closePath();oc.stroke();
+    ctx.strokeStyle='rgba(0,0,0,0.18)';ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(sx,sy-hh);ctx.lineTo(sx+hw,sy);
+    ctx.lineTo(sx,sy+hh);ctx.lineTo(sx-hw,sy);ctx.closePath();ctx.stroke();
 
     if(t.type==='goal'){
-      oc.font='20px serif';oc.textAlign='center';
-      oc.fillText('☕',lx,ly-hh-2);
+      ctx.font='20px serif';ctx.textAlign='center';
+      ctx.fillText('☕',sx,sy-hh-2);
     }
   }
-
-  // Compute pivot in screen space, then relative to offscreen canvas
-  const pivot=sec.pivot||{x:sec.tiles[0].x,y:sec.tiles[0].y};
-  const{x:pvx,y:pvy}=iso(pivot.x,pivot.y,(sec.tiles[0]?.z||0)+(sec.zOffset||0),OX,OY);
-
-  return{off,offX:minX,offY:minY,pivotScreenX:pvx,pivotScreenY:pvy};
+  ctx.restore();
 }
 
 // ═══════════════════════════════════════════════════════
@@ -490,19 +475,11 @@ function render(){
     }
   }
 
-  // Draw rotating section on top via offscreen canvas (spun around pivot)
+  // Draw rotating section with ctx pivot-rotation (correct approach)
   if(game.rotAnim){
     const{secId,angle,secIdx}=game.rotAnim;
     const sec=lv.sections.find(s=>s.id===secId);
-    if(sec){
-      const{off,offX,offY,pivotScreenX,pivotScreenY}=renderSectionOffscreen(sec,secIdx,null);
-      ctx.save();
-      ctx.translate(pivotScreenX,pivotScreenY);
-      ctx.rotate(angle);
-      ctx.translate(-pivotScreenX,-pivotScreenY);
-      ctx.drawImage(off,offX,offY);
-      ctx.restore();
-    }
+    if(sec) drawSectionTiles(sec, secIdx, angle);
   }
 
   // Path preview dots
