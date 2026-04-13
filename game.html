@@ -5,900 +5,833 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>Café Impossible</title>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  html, body {
-    width: 100%; height: 100%;
-    background: #1a1410;
-    overflow: hidden;
-    font-family: 'Georgia', serif;
-  }
-  #game-container {
-    width: 100%; height: 100%;
-    display: flex; align-items: center; justify-content: center;
-  }
-  canvas { display: block; }
-
-  /* HUD Overlay */
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html,body { width:100%; height:100%; background:#1a1410; overflow:hidden; touch-action:none; }
+  #c { display:block; width:100%; height:100%; }
   #hud {
-    position: fixed; top: 0; left: 0; right: 0;
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 18px 28px;
-    pointer-events: none;
-    z-index: 10;
+    position:fixed; top:0; left:0; right:0;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:16px 24px; pointer-events:none; z-index:10;
+    background:linear-gradient(to bottom,rgba(26,20,16,.72) 0%,transparent 100%);
   }
-  #level-title {
-    font-size: 15px;
-    letter-spacing: 3px;
-    text-transform: uppercase;
-    color: #c8a97a;
-    opacity: 0.85;
+  #level-title { font:normal 13px/1 Georgia,serif; letter-spacing:3px; text-transform:uppercase; color:#c8a97a; }
+  #level-counter { font:normal 11px/1 Georgia,serif; letter-spacing:2px; color:#5a4838; }
+  #overlay {
+    position:fixed; inset:0; background:rgba(26,20,16,.93);
+    display:none; align-items:center; justify-content:center;
+    flex-direction:column; gap:14px; z-index:20;
   }
-  #level-counter {
-    font-size: 13px;
-    letter-spacing: 2px;
-    color: #7a6248;
+  #overlay.show { display:flex; }
+  #overlay h2 { font:normal 26px/1 Georgia,serif; letter-spacing:5px; text-transform:uppercase; color:#c8a97a; }
+  #overlay p  { font:normal 12px/1 'Courier New',monospace; letter-spacing:2px; color:#5a4838; }
+  .ov-btn {
+    margin-top:8px; padding:11px 34px; background:transparent;
+    border:1px solid #c8a97a; color:#c8a97a;
+    font:normal 11px/1 'Courier New',monospace; letter-spacing:3px; text-transform:uppercase; cursor:pointer;
   }
-
-  /* Hint button */
-  #hint-btn {
-    position: fixed; bottom: 24px; right: 24px;
-    width: 44px; height: 44px;
-    border-radius: 50%;
-    background: rgba(200,169,122,0.15);
-    border: 1px solid rgba(200,169,122,0.3);
-    color: #c8a97a;
-    font-size: 18px;
-    cursor: pointer;
-    pointer-events: all;
-    z-index: 10;
-    display: flex; align-items: center; justify-content: center;
-    transition: background 0.2s;
-  }
-  #hint-btn:hover { background: rgba(200,169,122,0.25); }
-
-  /* Level complete overlay */
-  #level-complete {
-    position: fixed; inset: 0;
-    background: rgba(26,20,16,0.92);
-    display: none; align-items: center; justify-content: center;
-    flex-direction: column; gap: 16px;
-    z-index: 20;
-  }
-  #level-complete.show { display: flex; }
-  #level-complete h2 {
-    font-size: 28px; letter-spacing: 4px;
-    color: #c8a97a; text-transform: uppercase;
-  }
-  #level-complete p {
-    font-size: 14px; letter-spacing: 2px;
-    color: #7a6248;
-  }
-  #next-btn {
-    margin-top: 12px;
-    padding: 12px 36px;
-    background: transparent;
-    border: 1px solid #c8a97a;
-    color: #c8a97a;
-    font-size: 13px; letter-spacing: 3px;
-    text-transform: uppercase;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-  #next-btn:hover {
-    background: rgba(200,169,122,0.12);
-  }
-
-  /* Loading screen */
+  .ov-btn:hover { background:rgba(200,169,122,.1); }
   #loading {
-    position: fixed; inset: 0;
-    background: #1a1410;
-    display: flex; align-items: center; justify-content: center;
-    flex-direction: column; gap: 16px;
-    z-index: 30;
+    position:fixed; inset:0; background:#1a1410;
+    display:flex; align-items:center; justify-content:center;
+    flex-direction:column; gap:14px; z-index:30;
   }
-  #loading h1 {
-    font-size: 32px; letter-spacing: 6px;
-    color: #c8a97a; text-transform: uppercase;
-  }
-  #loading p {
-    font-size: 11px; letter-spacing: 4px;
-    color: #4a3828; text-transform: uppercase;
-  }
-  .coffee-cup {
-    font-size: 48px;
-    animation: steam 2s ease-in-out infinite;
-  }
-  @keyframes steam {
-    0%, 100% { transform: translateY(0) rotate(-2deg); }
-    50% { transform: translateY(-6px) rotate(2deg); }
-  }
+  #loading .cup { font-size:44px; animation:float 2s ease-in-out infinite; }
+  @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+  #loading h1 { font:normal 28px/1 Georgia,serif; letter-spacing:6px; text-transform:uppercase; color:#c8a97a; }
+  #loading p  { font:normal 10px/1 'Courier New',monospace; letter-spacing:4px; color:#3a2818; text-transform:uppercase; }
 </style>
 </head>
 <body>
-
-<div id="loading">
-  <div class="coffee-cup">☕</div>
-  <h1>Café Impossible</h1>
-  <p>Brewing your world…</p>
-</div>
-
+<canvas id="c"></canvas>
 <div id="hud">
   <div id="level-title">Level 1 — First Brew</div>
   <div id="level-counter">1 / 5</div>
 </div>
-
-<button id="hint-btn" title="Hint">?</button>
-
-<div id="level-complete">
-  <h2>☕ Brewed!</h2>
-  <p id="complete-msg">You found the perfect cup.</p>
-  <button id="next-btn" onclick="nextLevel()">Next Level</button>
+<div id="overlay">
+  <h2 id="ov-title">☕ Brewed!</h2>
+  <p  id="ov-msg">You found the perfect cup.</p>
+  <button class="ov-btn" id="ov-btn" onclick="nextLevel()">Next Level</button>
+</div>
+<div id="loading">
+  <div class="cup">☕</div>
+  <h1>Café Impossible</h1>
+  <p>Brewing your world…</p>
 </div>
 
-<div id="game-container"></div>
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/3.60.0/phaser.min.js"></script>
 <script>
-// ─────────────────────────────────────────────
-//  CONSTANTS & PALETTE
-// ─────────────────────────────────────────────
-const TILE_W = 64;   // isometric tile width
-const TILE_H = 32;   // isometric tile height
-const TILE_DEPTH = 20; // visual depth of tile sides
-const Z_STEP = 28;   // pixels per z-unit (height)
+'use strict';
 
-const PALETTE = {
-  floor_top:    0xd4b896,
-  floor_left:   0x9c7d5e,
-  floor_right:  0xb8966e,
-  stair_top:    0xcca882,
-  stair_left:   0x8a6e4f,
-  stair_right:  0xa07b5a,
-  wall_top:     0xe8d4b8,
-  wall_left:    0x6b4f34,
-  wall_right:   0x7a5c3e,
-  goal_top:     0xf5c842,
-  goal_left:    0xc4920a,
-  goal_right:   0xd9a81a,
-  player:       0xe8e0d4,
-  player_shadow:0x3a2810,
-  section_highlight: 0xfff0c8,
-  bg:           0x1a1410,
-};
+// ═══════════════════════════════════════════════════════
+//  TILE DIMENSIONS
+// ═══════════════════════════════════════════════════════
+const TW=64, TH=32, TD=22, ZS=26;
 
-// ─────────────────────────────────────────────
-//  ISO HELPERS
-// ─────────────────────────────────────────────
-function isoToScreen(gx, gy, gz, originX, originY) {
-  const sx = (gx - gy) * (TILE_W / 2);
-  const sy = (gx + gy) * (TILE_H / 2) - gz * Z_STEP;
-  return { x: originX + sx, y: originY + sy };
+// ═══════════════════════════════════════════════════════
+//  SECTION COLOUR PALETTES
+//  Each section gets one of these tint palettes.
+//  Format: [top, leftFace, rightFace]
+//  'goal' and 'wall' types always use their own fixed colours.
+// ═══════════════════════════════════════════════════════
+const SEC_PALETTES = [
+  // 0 – warm sand (base / non-interactive)
+  { t:'#d4b896', l:'#9c7d5e', r:'#b8966e' },
+  // 1 – dusty rose
+  { t:'#d4a090', l:'#9c6858', r:'#b87868' },
+  // 2 – sage green
+  { t:'#a8c4a0', l:'#6a8864', r:'#84a87c' },
+  // 3 – slate blue
+  { t:'#98aec8', l:'#5a7090', r:'#7090b0' },
+  // 4 – warm amber (elevators)
+  { t:'#d4b060', l:'#9c7828', r:'#b89040' },
+  // 5 – lavender
+  { t:'#b8a8d4', l:'#7a6898', r:'#9888b8' },
+];
+
+const WALL_PAL  = { t:'#e8d4b8', l:'#6b4f34', r:'#7a5c3e' };
+const GOAL_PAL  = { t:'#f5c842', l:'#c4920a', r:'#d9a81a' };
+const HOVER_TOP = '#fff4d0';
+
+// Per-level section→palette-index mapping (assigned at loadLevel)
+// base section always gets index 0
+const SEC_PAL_ASSIGN = {};
+
+// ═══════════════════════════════════════════════════════
+//  ISO MATH
+// ═══════════════════════════════════════════════════════
+function iso(gx,gy,gz,ox,oy){
+  return { x: ox+(gx-gy)*(TW/2), y: oy+(gx+gy)*(TH/2)-gz*ZS };
+}
+function hitTile(px,py,gx,gy,gz,ox,oy){
+  const c=iso(gx,gy,gz,ox,oy);
+  return Math.abs((px-c.x)/(TW/2))+Math.abs((py-c.y)/(TH/2))<=1;
 }
 
-// ─────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════
 //  CONNECTIVITY GRAPH
-// ─────────────────────────────────────────────
-class ConnGraph {
-  constructor() { this.adj = {}; }
-  key(x, y) { return `${x},${y}`; }
-  clear() { this.adj = {}; }
-  addEdge(x1, y1, x2, y2) {
-    const a = this.key(x1, y1), b = this.key(x2, y2);
-    if (!this.adj[a]) this.adj[a] = new Set();
-    if (!this.adj[b]) this.adj[b] = new Set();
-    this.adj[a].add(b); this.adj[b].add(a);
+// ═══════════════════════════════════════════════════════
+class Graph {
+  constructor(){ this.e={}; }
+  k(x,y){ return x+','+y; }
+  link(x1,y1,x2,y2){
+    const a=this.k(x1,y1),b=this.k(x2,y2);
+    (this.e[a]=this.e[a]||new Set()).add(b);
+    (this.e[b]=this.e[b]||new Set()).add(a);
   }
-  neighbors(x, y) {
-    return Array.from(this.adj[this.key(x, y)] || []).map(k => {
-      const [nx, ny] = k.split(',').map(Number);
-      return { x: nx, y: ny };
-    });
-  }
-  bfs(sx, sy, gx, gy) {
-    const start = this.key(sx, sy), goal = this.key(gx, gy);
-    if (start === goal) return [];
-    const visited = new Set([start]);
-    const queue = [[start, []]];
-    while (queue.length) {
-      const [cur, path] = queue.shift();
-      for (const nb of (this.adj[cur] || [])) {
-        if (nb === goal) {
-          const full = [...path, cur, goal];
-          return full.map(k => { const [x,y]=k.split(',').map(Number); return {x,y}; });
-        }
-        if (!visited.has(nb)) { visited.add(nb); queue.push([nb, [...path, cur]]); }
+  bfs(sx,sy,gx,gy){
+    const s=this.k(sx,sy),g=this.k(gx,gy);
+    if(s===g)return[];
+    const seen=new Set([s]),q=[[s,[s]]];
+    while(q.length){
+      const[cur,path]=q.shift();
+      for(const nb of(this.e[cur]||[])){
+        if(nb===g)return[...path,g].map(k=>{const[x,y]=k.split(',');return{x:+x,y:+y};});
+        if(!seen.has(nb)){seen.add(nb);q.push([nb,[...path,nb]]);}
       }
     }
     return null;
   }
 }
 
-// ─────────────────────────────────────────────
-//  LEVEL MANAGER  – loads JSON, builds state
-// ─────────────────────────────────────────────
-class LevelManager {
-  constructor() {
-    this.levels = ['level1.json','level2.json','level3.json','level4.json','level5.json'];
-    this.currentIndex = 0;
-    this.data = null;
-  }
-
-  async load(index) {
-    this.currentIndex = index;
-    // Inline level data so the game works as a standalone file
-    this.data = INLINE_LEVELS[index];
-    return this.data;
-  }
-
-  buildGraph(data) {
-    const g = new ConnGraph();
-    // Collect all walkable tile positions
-    const walkable = new Set();
-    for (const sec of data.sections) {
-      for (const t of sec.tiles) {
-        if (t.type !== 'wall') walkable.add(`${t.x},${t.y}`);
-      }
-    }
-    // Add adjacency from each section's current rotation connection list
-    for (const sec of data.sections) {
-      const rot = sec.currentRotation || 0;
-      const connBlock = (sec.connections || []).find(c => c.rotation === rot);
-      if (connBlock) {
-        for (const link of connBlock.links) {
-          g.addEdge(link.from.x, link.from.y, link.to.x, link.to.y);
-        }
-      }
-    }
-    return g;
-  }
-}
-
-// ─────────────────────────────────────────────
-//  INLINE LEVELS (so game works without a server)
-// ─────────────────────────────────────────────
-const INLINE_LEVELS = [
+// ═══════════════════════════════════════════════════════
+//  LEVEL DATA
+// ═══════════════════════════════════════════════════════
+const LEVELS=[
   // Level 1 – First Brew
   {
-    id:'level1', name:'First Brew', width:7, height:7,
-    playerStart:{x:1,y:5,z:0}, goal:{x:5,y:1,z:0},
+    id:'level1',name:'First Brew',
+    playerStart:{x:1,y:5,z:0},goal:{x:5,y:1,z:0},
     sections:[
-      { id:'base', pivot:{x:3,y:3}, rotatable:false, currentRotation:0,
-        tiles:[
-          {x:1,y:5,z:0,type:'floor'},{x:2,y:5,z:0,type:'floor'},
-          {x:2,y:4,z:0,type:'floor'},{x:2,y:3,z:0,type:'floor'},
-          {x:4,y:3,z:0,type:'floor'},{x:4,y:2,z:0,type:'floor'},
-          {x:5,y:2,z:0,type:'floor'},{x:5,y:1,z:0,type:'goal'}
-        ],
-        connections:[{rotation:0,links:[]}]
-      },
-      { id:'bridge', pivot:{x:3,y:3}, rotatable:true, rotationSteps:4, currentRotation:0,
-        tiles:[
-          {x:3,y:3,z:0,type:'floor'},{x:3,y:3,z:1,type:'floor',face:'top'},{x:3,y:3,z:2,type:'floor',face:'top'}
-        ],
-        connections:[
-          {rotation:0,links:[{from:{x:2,y:3},to:{x:3,y:3}},{from:{x:3,y:3},to:{x:4,y:3}}]},
-          {rotation:1,links:[]},
-          {rotation:2,links:[{from:{x:2,y:3},to:{x:3,y:3}},{from:{x:3,y:3},to:{x:4,y:3}}]},
-          {rotation:3,links:[]}
-        ]
-      }
+      {id:'base',rotatable:false,elevatable:false,currentRotation:0,zOffset:0,
+       tiles:[{x:1,y:5,z:0,type:'floor'},{x:2,y:5,z:0,type:'floor'},
+              {x:2,y:4,z:0,type:'floor'},{x:2,y:3,z:0,type:'floor'},
+              {x:4,y:3,z:0,type:'floor'},{x:4,y:2,z:0,type:'floor'},
+              {x:5,y:2,z:0,type:'floor'},{x:5,y:1,z:0,type:'goal'}],
+       connections:[{rotation:0,links:[
+         {f:{x:1,y:5},t:{x:2,y:5}},{f:{x:2,y:5},t:{x:2,y:4}},{f:{x:2,y:4},t:{x:2,y:3}},
+         {f:{x:4,y:3},t:{x:4,y:2}},{f:{x:4,y:2},t:{x:5,y:2}},{f:{x:5,y:2},t:{x:5,y:1}}]}]},
+      {id:'bridge',rotatable:true,elevatable:false,currentRotation:0,zOffset:0,
+       pivot:{x:3,y:3},
+       tiles:[{x:3,y:3,z:0,type:'floor'}],
+       connections:[
+         {rotation:0,links:[{f:{x:2,y:3},t:{x:3,y:3}},{f:{x:3,y:3},t:{x:4,y:3}}]},
+         {rotation:1,links:[]},{rotation:2,links:[{f:{x:2,y:3},t:{x:3,y:3}},{f:{x:3,y:3},t:{x:4,y:3}}]},
+         {rotation:3,links:[]}]}
     ]
   },
   // Level 2 – Winding Path
   {
-    id:'level2', name:'Winding Path', width:9, height:9,
-    playerStart:{x:1,y:7,z:0}, goal:{x:7,y:1,z:0},
+    id:'level2',name:'Winding Path',
+    playerStart:{x:1,y:7,z:0},goal:{x:7,y:1,z:0},
     sections:[
-      { id:'base', pivot:{x:4,y:4}, rotatable:false, currentRotation:0,
-        tiles:[
-          {x:1,y:7,z:0,type:'floor'},{x:2,y:7,z:0,type:'floor'},
-          {x:2,y:6,z:0,type:'floor'},
-          {x:6,y:2,z:0,type:'floor'},{x:7,y:2,z:0,type:'floor'},
-          {x:7,y:1,z:0,type:'goal'}
-        ],
-        connections:[{rotation:0,links:[
-          {from:{x:1,y:7},to:{x:2,y:7}},
-          {from:{x:2,y:7},to:{x:2,y:6}},
-          {from:{x:6,y:2},to:{x:7,y:2}},
-          {from:{x:7,y:2},to:{x:7,y:1}}
-        ]}]
-      },
-      { id:'penrose', pivot:{x:4,y:4}, rotatable:true, rotationSteps:4, currentRotation:0,
-        tiles:[
-          {x:2,y:5,z:0,type:'stair',face:'top'},{x:3,y:5,z:1,type:'stair',face:'top'},
-          {x:4,y:5,z:2,type:'stair',face:'top'},{x:4,y:4,z:2,type:'floor',face:'top'},
-          {x:4,y:3,z:2,type:'stair',face:'top'},{x:5,y:3,z:1,type:'stair',face:'top'},
-          {x:6,y:3,z:0,type:'stair',face:'top'},{x:6,y:4,z:0,type:'floor',face:'top'},
-          {x:6,y:5,z:0,type:'floor',face:'top'}
-        ],
-        connections:[
-          {rotation:0,links:[
-            {from:{x:2,y:6},to:{x:2,y:5}},
-            {from:{x:2,y:5},to:{x:3,y:5}},{from:{x:3,y:5},to:{x:4,y:5}},
-            {from:{x:4,y:5},to:{x:4,y:4}},{from:{x:4,y:4},to:{x:4,y:3}},
-            {from:{x:4,y:3},to:{x:5,y:3}},{from:{x:5,y:3},to:{x:6,y:3}},
-            {from:{x:6,y:3},to:{x:6,y:4}},{from:{x:6,y:4},to:{x:6,y:5}},
-            {from:{x:6,y:5},to:{x:6,y:2}}
-          ]},
-          {rotation:1,links:[]},
-          {rotation:2,links:[
-            {from:{x:2,y:6},to:{x:2,y:5}},{from:{x:6,y:5},to:{x:6,y:2}}
-          ]},
-          {rotation:3,links:[]}
-        ]
-      }
+      {id:'base',rotatable:false,elevatable:false,currentRotation:0,zOffset:0,
+       tiles:[{x:1,y:7,z:0,type:'floor'},{x:2,y:7,z:0,type:'floor'},{x:2,y:6,z:0,type:'floor'},
+              {x:6,y:2,z:0,type:'floor'},{x:7,y:2,z:0,type:'floor'},{x:7,y:1,z:0,type:'goal'}],
+       connections:[{rotation:0,links:[
+         {f:{x:1,y:7},t:{x:2,y:7}},{f:{x:2,y:7},t:{x:2,y:6}},
+         {f:{x:6,y:2},t:{x:7,y:2}},{f:{x:7,y:2},t:{x:7,y:1}}]}]},
+      {id:'arm_a',rotatable:true,elevatable:false,currentRotation:0,zOffset:0,
+       pivot:{x:3,y:5},
+       tiles:[{x:3,y:5,z:0,type:'floor'},{x:4,y:5,z:0,type:'floor'}],
+       connections:[
+         {rotation:0,links:[{f:{x:2,y:6},t:{x:3,y:5}},{f:{x:3,y:5},t:{x:4,y:5}}]},
+         {rotation:1,links:[{f:{x:2,y:6},t:{x:3,y:5}},{f:{x:3,y:5},t:{x:3,y:4}}]},
+         {rotation:2,links:[{f:{x:2,y:6},t:{x:3,y:5}},{f:{x:3,y:5},t:{x:4,y:5}}]},
+         {rotation:3,links:[{f:{x:2,y:6},t:{x:3,y:5}},{f:{x:3,y:5},t:{x:3,y:4}}]}]},
+      {id:'arm_b',rotatable:true,elevatable:false,currentRotation:1,zOffset:0,
+       pivot:{x:5,y:3},
+       tiles:[{x:5,y:3,z:0,type:'floor'},{x:5,y:4,z:0,type:'floor'}],
+       connections:[
+         {rotation:0,links:[{f:{x:4,y:5},t:{x:5,y:4}},{f:{x:5,y:4},t:{x:5,y:3}},{f:{x:5,y:3},t:{x:6,y:2}}]},
+         {rotation:1,links:[{f:{x:3,y:4},t:{x:5,y:4}},{f:{x:5,y:4},t:{x:5,y:3}},{f:{x:5,y:3},t:{x:6,y:2}}]},
+         {rotation:2,links:[{f:{x:4,y:5},t:{x:5,y:4}},{f:{x:5,y:4},t:{x:5,y:3}},{f:{x:5,y:3},t:{x:6,y:2}}]},
+         {rotation:3,links:[{f:{x:3,y:4},t:{x:5,y:4}},{f:{x:5,y:4},t:{x:5,y:3}},{f:{x:5,y:3},t:{x:6,y:2}}]}]}
     ]
   },
   // Level 3 – Hidden Grounds
   {
-    id:'level3', name:'Hidden Grounds', width:9, height:9,
-    playerStart:{x:1,y:7,z:0}, goal:{x:7,y:1,z:0},
+    id:'level3',name:'Hidden Grounds',
+    playerStart:{x:1,y:6,z:0},goal:{x:7,y:2,z:0},
     sections:[
-      { id:'base', pivot:{x:4,y:4}, rotatable:false, currentRotation:0,
-        tiles:[
-          {x:1,y:7,z:0,type:'floor'},{x:2,y:7,z:0,type:'floor'},
-          {x:2,y:6,z:0,type:'floor'},{x:2,y:5,z:0,type:'floor'},
-          {x:6,y:3,z:0,type:'floor'},{x:6,y:2,z:0,type:'floor'},
-          {x:7,y:2,z:0,type:'floor'},{x:7,y:1,z:0,type:'goal'}
-        ],
-        connections:[{rotation:0,links:[
-          {from:{x:1,y:7},to:{x:2,y:7}},{from:{x:2,y:7},to:{x:2,y:6}},
-          {from:{x:2,y:6},to:{x:2,y:5}},
-          {from:{x:6,y:3},to:{x:6,y:2}},{from:{x:6,y:2},to:{x:7,y:2}},
-          {from:{x:7,y:2},to:{x:7,y:1}}
-        ]}]
-      },
-      { id:'tower_a', pivot:{x:3,y:4}, rotatable:true, rotationSteps:4, currentRotation:0,
-        tiles:[
-          {x:3,y:4,z:0,type:'floor'},{x:3,y:4,z:1,type:'wall'},{x:3,y:4,z:2,type:'floor',face:'top'}
-        ],
-        connections:[
-          {rotation:0,links:[]},{rotation:1,links:[{from:{x:2,y:5},to:{x:3,y:4}}]},
-          {rotation:2,links:[]},{rotation:3,links:[{from:{x:2,y:5},to:{x:3,y:4}}]}
-        ]
-      },
-      { id:'tower_b', pivot:{x:5,y:4}, rotatable:true, rotationSteps:4, currentRotation:0,
-        tiles:[
-          {x:5,y:4,z:0,type:'floor'},{x:5,y:4,z:1,type:'wall'},{x:5,y:4,z:2,type:'floor',face:'top'}
-        ],
-        connections:[
-          {rotation:0,links:[]},{rotation:1,links:[{from:{x:5,y:4},to:{x:6,y:3}}]},
-          {rotation:2,links:[]},{rotation:3,links:[{from:{x:5,y:4},to:{x:6,y:3}}]}
-        ]
-      },
-      { id:'bridge_hidden', pivot:{x:4,y:4}, rotatable:true, rotationSteps:4, currentRotation:0,
-        tiles:[{x:4,y:4,z:2,type:'floor',face:'top'}],
-        connections:[
-          {rotation:0,links:[]},
-          {rotation:1,links:[{from:{x:3,y:4},to:{x:4,y:4}},{from:{x:4,y:4},to:{x:5,y:4}}]},
-          {rotation:2,links:[]},
-          {rotation:3,links:[{from:{x:3,y:4},to:{x:4,y:4}},{from:{x:4,y:4},to:{x:5,y:4}}]}
-        ]
-      }
+      {id:'base',rotatable:false,elevatable:false,currentRotation:0,zOffset:0,
+       tiles:[{x:1,y:6,z:0,type:'floor'},{x:2,y:6,z:0,type:'floor'},{x:2,y:5,z:0,type:'floor'},
+              {x:6,y:3,z:2,type:'floor'},{x:6,y:2,z:2,type:'floor'},{x:7,y:2,z:2,type:'goal'}],
+       connections:[{rotation:0,links:[
+         {f:{x:1,y:6},t:{x:2,y:6}},{f:{x:2,y:6},t:{x:2,y:5}},
+         {f:{x:6,y:3},t:{x:6,y:2}},{f:{x:6,y:2},t:{x:7,y:2}}]}]},
+      {id:'lift',rotatable:false,elevatable:true,currentRotation:0,zOffset:0,zMin:0,zMax:2,
+       pivot:{x:4,y:4},
+       tiles:[{x:3,y:5,z:0,type:'floor'},{x:4,y:5,z:0,type:'floor'},
+              {x:4,y:4,z:0,type:'floor'},{x:5,y:4,z:0,type:'floor'}],
+       connections:[{rotation:0,links:[
+         {f:{x:2,y:5},t:{x:3,y:5}},{f:{x:3,y:5},t:{x:4,y:5}},
+         {f:{x:4,y:5},t:{x:4,y:4}},{f:{x:4,y:4},t:{x:5,y:4}}]}]},
+      {id:'bridge_hi',rotatable:true,elevatable:false,currentRotation:0,zOffset:0,
+       pivot:{x:5,y:3},
+       tiles:[{x:5,y:3,z:2,type:'floor'},{x:5,y:4,z:2,type:'floor'}],
+       connections:[
+         {rotation:0,links:[{f:{x:5,y:4},t:{x:5,y:3}},{f:{x:5,y:3},t:{x:6,y:3}}]},
+         {rotation:1,links:[]},
+         {rotation:2,links:[{f:{x:5,y:4},t:{x:5,y:3}},{f:{x:5,y:3},t:{x:6,y:3}}]},
+         {rotation:3,links:[]}]}
     ]
   },
   // Level 4 – Espresso Drop
   {
-    id:'level4', name:'Espresso Drop', width:9, height:9,
-    playerStart:{x:1,y:5,z:0}, goal:{x:7,y:3,z:0},
+    id:'level4',name:'Espresso Drop',
+    playerStart:{x:1,y:6,z:0},goal:{x:7,y:2,z:0},
     sections:[
-      { id:'base', pivot:{x:4,y:4}, rotatable:false, currentRotation:0,
-        tiles:[
-          {x:1,y:5,z:0,type:'floor'},{x:2,y:5,z:0,type:'floor'},
-          {x:6,y:3,z:0,type:'floor'},{x:7,y:3,z:0,type:'goal'}
-        ],
-        connections:[{rotation:0,links:[
-          {from:{x:1,y:5},to:{x:2,y:5}},{from:{x:6,y:3},to:{x:7,y:3}}
-        ]}]
-      },
-      { id:'gravity_block', pivot:{x:4,y:4}, rotatable:true, rotationSteps:4, currentRotation:0, gravityShift:true,
-        tiles:[
-          {x:3,y:5,z:0,type:'floor',face:'top'},{x:3,y:4,z:0,type:'wall',face:'right'},
-          {x:3,y:3,z:0,type:'floor',face:'top'},{x:4,y:3,z:0,type:'floor',face:'top'},
-          {x:4,y:4,z:0,type:'wall',face:'right'},{x:4,y:5,z:0,type:'floor',face:'top'},
-          {x:5,y:5,z:0,type:'floor',face:'top'},{x:5,y:4,z:0,type:'wall',face:'right'},
-          {x:5,y:3,z:0,type:'floor',face:'top'}
-        ],
-        connections:[
-          {rotation:0,links:[
-            {from:{x:2,y:5},to:{x:3,y:5}},{from:{x:3,y:5},to:{x:4,y:5}},{from:{x:4,y:5},to:{x:5,y:5}}
-          ]},
-          {rotation:1,links:[
-            {from:{x:2,y:5},to:{x:3,y:5}},{from:{x:3,y:5},to:{x:3,y:4}},{from:{x:3,y:4},to:{x:3,y:3}},
-            {from:{x:3,y:3},to:{x:4,y:3}},{from:{x:4,y:3},to:{x:5,y:3}},{from:{x:5,y:3},to:{x:6,y:3}}
-          ]},
-          {rotation:2,links:[
-            {from:{x:2,y:5},to:{x:3,y:5}},{from:{x:3,y:5},to:{x:4,y:5}},{from:{x:4,y:5},to:{x:5,y:5}}
-          ]},
-          {rotation:3,links:[
-            {from:{x:2,y:5},to:{x:3,y:5}},{from:{x:3,y:5},to:{x:3,y:4}},{from:{x:3,y:4},to:{x:3,y:3}},
-            {from:{x:3,y:3},to:{x:4,y:3}},{from:{x:4,y:3},to:{x:5,y:3}},{from:{x:5,y:3},to:{x:6,y:3}}
-          ]}
-        ]
-      }
+      {id:'base',rotatable:false,elevatable:false,currentRotation:0,zOffset:0,
+       tiles:[{x:1,y:6,z:0,type:'floor'},{x:2,y:6,z:0,type:'floor'},
+              {x:6,y:2,z:0,type:'floor'},{x:7,y:2,z:0,type:'goal'}],
+       connections:[{rotation:0,links:[
+         {f:{x:1,y:6},t:{x:2,y:6}},{f:{x:6,y:2},t:{x:7,y:2}}]}]},
+      {id:'platform',rotatable:false,elevatable:true,currentRotation:0,zOffset:0,zMin:0,zMax:2,
+       pivot:{x:4,y:5},
+       tiles:[{x:3,y:6,z:0,type:'floor'},{x:4,y:6,z:0,type:'floor'},
+              {x:3,y:5,z:0,type:'floor'},{x:4,y:5,z:0,type:'floor'}],
+       connections:[{rotation:0,links:[
+         {f:{x:2,y:6},t:{x:3,y:6}},{f:{x:3,y:6},t:{x:4,y:6}},
+         {f:{x:3,y:6},t:{x:3,y:5}},{f:{x:4,y:6},t:{x:4,y:5}}]}]},
+      {id:'bridge',rotatable:true,elevatable:false,currentRotation:0,zOffset:0,
+       pivot:{x:5,y:4},
+       tiles:[{x:5,y:4,z:0,type:'floor'},{x:5,y:3,z:0,type:'floor'}],
+       connections:[
+         {rotation:0,links:[{f:{x:4,y:5},t:{x:5,y:4}},{f:{x:5,y:4},t:{x:5,y:3}},{f:{x:5,y:3},t:{x:6,y:2}}]},
+         {rotation:1,links:[]},
+         {rotation:2,links:[{f:{x:4,y:5},t:{x:5,y:4}},{f:{x:5,y:4},t:{x:5,y:3}},{f:{x:5,y:3},t:{x:6,y:2}}]},
+         {rotation:3,links:[]}]}
     ]
   },
   // Level 5 – The Perfect Cup
   {
-    id:'level5', name:'The Perfect Cup', width:11, height:11,
-    playerStart:{x:1,y:9,z:0}, goal:{x:9,y:1,z:0},
+    id:'level5',name:'The Perfect Cup',
+    playerStart:{x:1,y:8,z:0},goal:{x:8,y:1,z:0},
     sections:[
-      { id:'base', pivot:{x:5,y:5}, rotatable:false, currentRotation:0,
-        tiles:[
-          {x:1,y:9,z:0,type:'floor'},{x:2,y:9,z:0,type:'floor'},{x:2,y:8,z:0,type:'floor'},
-          {x:8,y:2,z:0,type:'floor'},{x:8,y:1,z:0,type:'floor'},{x:9,y:1,z:0,type:'goal'}
-        ],
-        connections:[{rotation:0,links:[
-          {from:{x:1,y:9},to:{x:2,y:9}},{from:{x:2,y:9},to:{x:2,y:8}},
-          {from:{x:8,y:2},to:{x:8,y:1}},{from:{x:8,y:1},to:{x:9,y:1}}
-        ]}]
-      },
-      { id:'section_a', pivot:{x:3,y:7}, rotatable:true, rotationSteps:4, currentRotation:0,
-        tiles:[
-          {x:3,y:7,z:0,type:'floor'},{x:3,y:6,z:0,type:'stair',face:'top'},{x:3,y:5,z:1,type:'floor',face:'top'}
-        ],
-        connections:[
-          {rotation:0,links:[{from:{x:2,y:8},to:{x:3,y:7}},{from:{x:3,y:7},to:{x:3,y:6}},{from:{x:3,y:6},to:{x:3,y:5}}]},
-          {rotation:1,links:[]},
-          {rotation:2,links:[{from:{x:2,y:8},to:{x:3,y:7}},{from:{x:3,y:7},to:{x:3,y:6}},{from:{x:3,y:6},to:{x:3,y:5}}]},
-          {rotation:3,links:[]}
-        ]
-      },
-      { id:'section_b', pivot:{x:5,y:5}, rotatable:true, rotationSteps:4, currentRotation:0, gravityShift:true,
-        tiles:[
-          {x:4,y:5,z:1,type:'floor',face:'top'},{x:5,y:5,z:1,type:'floor',face:'top'},
-          {x:5,y:4,z:1,type:'wall',face:'right'},{x:6,y:5,z:1,type:'floor',face:'top'}
-        ],
-        connections:[
-          {rotation:0,links:[{from:{x:3,y:5},to:{x:4,y:5}},{from:{x:4,y:5},to:{x:5,y:5}},{from:{x:5,y:5},to:{x:6,y:5}}]},
-          {rotation:1,links:[{from:{x:3,y:5},to:{x:4,y:5}},{from:{x:4,y:5},to:{x:5,y:5}},{from:{x:5,y:5},to:{x:5,y:4}},{from:{x:5,y:4},to:{x:6,y:4}}]},
-          {rotation:2,links:[{from:{x:3,y:5},to:{x:4,y:5}},{from:{x:4,y:5},to:{x:5,y:5}},{from:{x:5,y:5},to:{x:6,y:5}}]},
-          {rotation:3,links:[{from:{x:3,y:5},to:{x:4,y:5}},{from:{x:4,y:5},to:{x:5,y:5}},{from:{x:5,y:5},to:{x:5,y:4}},{from:{x:5,y:4},to:{x:6,y:4}}]}
-        ]
-      },
-      { id:'section_c', pivot:{x:7,y:3}, rotatable:true, rotationSteps:4, currentRotation:0,
-        tiles:[
-          {x:7,y:5,z:1,type:'floor',face:'top'},{x:7,y:4,z:1,type:'stair',face:'top'},{x:7,y:3,z:0,type:'floor'}
-        ],
-        connections:[
-          {rotation:0,links:[{from:{x:6,y:5},to:{x:7,y:5}},{from:{x:7,y:5},to:{x:7,y:4}},{from:{x:7,y:4},to:{x:7,y:3}},{from:{x:7,y:3},to:{x:8,y:2}}]},
-          {rotation:1,links:[]},
-          {rotation:2,links:[{from:{x:6,y:5},to:{x:7,y:5}},{from:{x:7,y:5},to:{x:7,y:4}},{from:{x:7,y:4},to:{x:7,y:3}},{from:{x:7,y:3},to:{x:8,y:2}}]},
-          {rotation:3,links:[]}
-        ]
-      }
+      {id:'base',rotatable:false,elevatable:false,currentRotation:0,zOffset:0,
+       tiles:[{x:1,y:8,z:0,type:'floor'},{x:2,y:8,z:0,type:'floor'},{x:2,y:7,z:0,type:'floor'},
+              {x:7,y:2,z:2,type:'floor'},{x:7,y:1,z:2,type:'floor'},{x:8,y:1,z:2,type:'goal'}],
+       connections:[{rotation:0,links:[
+         {f:{x:1,y:8},t:{x:2,y:8}},{f:{x:2,y:8},t:{x:2,y:7}},
+         {f:{x:7,y:2},t:{x:7,y:1}},{f:{x:7,y:1},t:{x:8,y:1}}]}]},
+      {id:'arm_left',rotatable:true,elevatable:false,currentRotation:0,zOffset:0,
+       pivot:{x:3,y:6},
+       tiles:[{x:3,y:6,z:0,type:'floor'},{x:4,y:6,z:0,type:'floor'}],
+       connections:[
+         {rotation:0,links:[{f:{x:2,y:7},t:{x:3,y:6}},{f:{x:3,y:6},t:{x:4,y:6}}]},
+         {rotation:1,links:[{f:{x:2,y:7},t:{x:3,y:6}},{f:{x:3,y:6},t:{x:3,y:5}}]},
+         {rotation:2,links:[{f:{x:2,y:7},t:{x:3,y:6}},{f:{x:3,y:6},t:{x:4,y:6}}]},
+         {rotation:3,links:[{f:{x:2,y:7},t:{x:3,y:6}},{f:{x:3,y:6},t:{x:3,y:5}}]}]},
+      {id:'lift_mid',rotatable:false,elevatable:true,currentRotation:0,zOffset:0,zMin:0,zMax:2,
+       pivot:{x:5,y:5},
+       tiles:[{x:4,y:5,z:0,type:'floor'},{x:5,y:5,z:0,type:'floor'},{x:5,y:4,z:0,type:'floor'}],
+       connections:[{rotation:0,links:[
+         {f:{x:4,y:6},t:{x:4,y:5}},{f:{x:3,y:5},t:{x:4,y:5}},
+         {f:{x:4,y:5},t:{x:5,y:5}},{f:{x:5,y:5},t:{x:5,y:4}}]}]},
+      {id:'arm_right',rotatable:true,elevatable:false,currentRotation:3,zOffset:0,
+       pivot:{x:6,y:3},
+       tiles:[{x:6,y:3,z:2,type:'floor'},{x:6,y:4,z:2,type:'floor'}],
+       connections:[
+         {rotation:0,links:[{f:{x:5,y:4},t:{x:6,y:4}},{f:{x:6,y:4},t:{x:6,y:3}},{f:{x:6,y:3},t:{x:7,y:2}}]},
+         {rotation:1,links:[]},
+         {rotation:2,links:[{f:{x:5,y:4},t:{x:6,y:4}},{f:{x:6,y:4},t:{x:6,y:3}},{f:{x:6,y:3},t:{x:7,y:2}}]},
+         {rotation:3,links:[]}]}
     ]
   }
 ];
 
-// ─────────────────────────────────────────────
-//  GAME SCENE
-// ─────────────────────────────────────────────
-class GameScene extends Phaser.Scene {
-  constructor() {
-    super({ key: 'GameScene' });
-    this.lvMgr = new LevelManager();
-    this.graph = new ConnGraph();
-    this.levelData = null;
-    this.playerPos = { x: 0, y: 0 };
-    this.playerWalking = false;
-    this.walkPath = [];
-    this.tileGraphics = [];
-    this.playerGfx = null;
-    this.shadowGfx = null;
-    this.originX = 0;
-    this.originY = 0;
-    this.selectedSection = null;
-    this.isRotating = false;
-    this.sectionIndicators = [];
+// ═══════════════════════════════════════════════════════
+//  GRAPH BUILDER
+// ═══════════════════════════════════════════════════════
+function buildGraph(level){
+  const g=new Graph();
+  for(const sec of level.sections){
+    const rot=sec.currentRotation||0;
+    const block=(sec.connections||[]).find(c=>c.rotation===rot);
+    if(!block)continue;
+    for(const lk of block.links) g.link(lk.f.x,lk.f.y,lk.t.x,lk.t.y);
   }
-
-  preload() {}
-
-  async create() {
-    this.cameras.main.setBackgroundColor(PALETTE.bg);
-    await this.loadLevel(0);
-    this.setupInput();
-    document.getElementById('loading').style.display = 'none';
-  }
-
-  async loadLevel(index) {
-    const data = await this.lvMgr.load(index);
-    this.levelData = JSON.parse(JSON.stringify(data)); // deep copy
-    this.graph = this.lvMgr.buildGraph(this.levelData);
-
-    // Origin: center the grid on screen
-    const W = this.scale.width, H = this.scale.height;
-    const cx = (this.levelData.width / 2);
-    const cy = (this.levelData.height / 2);
-    const screenCenter = isoToScreen(cx, cy, 0, 0, 0);
-    this.originX = W / 2 - screenCenter.x;
-    this.originY = H / 2 - screenCenter.y + H * 0.05;
-
-    this.playerPos = { ...this.levelData.playerStart };
-    this.clearScene();
-    this.drawLevel();
-    this.drawPlayer();
-    this.updateHUD();
-  }
-
-  clearScene() {
-    this.tileGraphics.forEach(g => g.destroy());
-    this.tileGraphics = [];
-    this.sectionIndicators.forEach(g => g.destroy());
-    this.sectionIndicators = [];
-    if (this.playerGfx) this.playerGfx.destroy();
-    if (this.shadowGfx) this.shadowGfx.destroy();
-    if (this.rotateBtns) this.rotateBtns.forEach(b => b.destroy());
-    this.rotateBtns = [];
-  }
-
-  drawLevel() {
-    // Sort all tiles by iso depth (painter's algorithm)
-    let allTiles = [];
-    for (const sec of this.levelData.sections) {
-      for (const tile of sec.tiles) {
-        allTiles.push({ ...tile, sectionId: sec.id, rotatable: sec.rotatable });
-      }
-    }
-    allTiles.sort((a, b) => (a.x + a.y + a.z * 0.5) - (b.x + b.y + b.z * 0.5));
-
-    for (const tile of allTiles) {
-      this.drawTile(tile);
-    }
-    this.drawSectionButtons();
-  }
-
-  drawTile(tile) {
-    const { x: sx, y: sy } = isoToScreen(tile.x, tile.y, tile.z, this.originX, this.originY);
-    const g = this.add.graphics();
-    this.tileGraphics.push(g);
-
-    const hw = TILE_W / 2, hh = TILE_H / 2;
-    const depth = tile.type === 'wall' ? TILE_DEPTH * 3 : TILE_DEPTH;
-
-    // Choose colors
-    let topC = PALETTE.floor_top, leftC = PALETTE.floor_left, rightC = PALETTE.floor_right;
-    if (tile.type === 'stair') { topC = PALETTE.stair_top; leftC = PALETTE.stair_left; rightC = PALETTE.stair_right; }
-    if (tile.type === 'wall')  { topC = PALETTE.wall_top;  leftC = PALETTE.wall_left;  rightC = PALETTE.wall_right; }
-    if (tile.type === 'goal')  { topC = PALETTE.goal_top;  leftC = PALETTE.goal_left;  rightC = PALETTE.goal_right; }
-
-    // Top face (rhombus)
-    g.fillStyle(topC);
-    g.beginPath();
-    g.moveTo(sx, sy - hh);
-    g.lineTo(sx + hw, sy);
-    g.lineTo(sx, sy + hh);
-    g.lineTo(sx - hw, sy);
-    g.closePath(); g.fillPath();
-
-    // Left face
-    g.fillStyle(leftC);
-    g.beginPath();
-    g.moveTo(sx - hw, sy);
-    g.lineTo(sx, sy + hh);
-    g.lineTo(sx, sy + hh + depth);
-    g.lineTo(sx - hw, sy + depth);
-    g.closePath(); g.fillPath();
-
-    // Right face
-    g.fillStyle(rightC);
-    g.beginPath();
-    g.moveTo(sx, sy + hh);
-    g.lineTo(sx + hw, sy);
-    g.lineTo(sx + hw, sy + depth);
-    g.lineTo(sx, sy + hh + depth);
-    g.closePath(); g.fillPath();
-
-    // Subtle outline
-    g.lineStyle(1, 0x000000, 0.15);
-    g.beginPath();
-    g.moveTo(sx, sy - hh); g.lineTo(sx + hw, sy);
-    g.lineTo(sx, sy + hh); g.lineTo(sx - hw, sy);
-    g.closePath(); g.strokePath();
-
-    // Goal: draw coffee cup icon
-    if (tile.type === 'goal') {
-      const cup = this.add.text(sx - 10, sy - 24, '☕', { fontSize: '20px' });
-      cup.setDepth(100);
-      this.tileGraphics.push(cup);
-    }
-
-    // Set depth for painter sort
-    g.setDepth(tile.x + tile.y + tile.z * 0.5);
-    g.setInteractive(
-      new Phaser.Geom.Polygon([
-        sx, sy - hh, sx + hw, sy, sx, sy + hh, sx - hw, sy
-      ]),
-      Phaser.Geom.Polygon.Contains
-    );
-    g.tileData = tile;
-
-    g.on('pointerdown', () => this.onTileTap(tile));
-    g.on('pointerover', () => {
-      if (!this.playerWalking && !this.isRotating) {
-        g.setAlpha(0.85);
-      }
-    });
-    g.on('pointerout', () => g.setAlpha(1));
-  }
-
-  drawSectionButtons() {
-    this.sectionIndicators.forEach(g => g.destroy());
-    this.sectionIndicators = [];
-
-    for (const sec of this.levelData.sections) {
-      if (!sec.rotatable) continue;
-      // Find bounding center of section
-      const xs = sec.tiles.map(t => t.x);
-      const ys = sec.tiles.map(t => t.y);
-      const cx = xs.reduce((a,b)=>a+b,0)/xs.length;
-      const cy = ys.reduce((a,b)=>a+b,0)/ys.length;
-      const maxZ = Math.max(...sec.tiles.map(t=>t.z||0));
-      const { x: sx, y: sy } = isoToScreen(cx, cy, maxZ + 1, this.originX, this.originY);
-
-      // Rotate button (circular arrow)
-      const btn = this.add.graphics();
-      btn.setDepth(200);
-      btn.fillStyle(0xc8a97a, 0.2);
-      btn.fillCircle(sx, sy - 12, 18);
-      btn.lineStyle(2, 0xc8a97a, 0.7);
-      btn.strokeCircle(sx, sy - 12, 18);
-
-      const txt = this.add.text(sx - 8, sy - 22, '↻', {
-        fontSize: '18px', color: '#c8a97a', alpha: 0.9
-      });
-      txt.setDepth(201);
-
-      btn.setInteractive(new Phaser.Geom.Circle(sx, sy - 12, 22), Phaser.Geom.Circle.Contains);
-      btn.on('pointerdown', (ptr) => {
-        ptr.event.stopPropagation();
-        this.rotateSection(sec.id, 1);
-      });
-      btn.on('pointerover', () => btn.fillStyle(0xc8a97a, 0.35));
-      btn.on('pointerout',  () => btn.fillStyle(0xc8a97a, 0.2));
-
-      this.sectionIndicators.push(btn, txt);
-    }
-  }
-
-  drawPlayer() {
-    if (this.playerGfx) this.playerGfx.destroy();
-    if (this.shadowGfx) this.shadowGfx.destroy();
-
-    const { x: sx, y: sy } = isoToScreen(
-      this.playerPos.x, this.playerPos.y, this.playerPos.z || 0,
-      this.originX, this.originY
-    );
-
-    // Shadow
-    this.shadowGfx = this.add.graphics();
-    this.shadowGfx.fillStyle(PALETTE.player_shadow, 0.3);
-    this.shadowGfx.fillEllipse(sx, sy + TILE_H/2 - 4, TILE_W * 0.6, TILE_H * 0.4);
-    this.shadowGfx.setDepth(this.playerPos.x + this.playerPos.y + 0.4);
-
-    // Body
-    this.playerGfx = this.add.graphics();
-    // Legs
-    this.playerGfx.fillStyle(0x8a6e4f);
-    this.playerGfx.fillRect(sx - 6, sy - 4, 5, 12);
-    this.playerGfx.fillRect(sx + 1, sy - 4, 5, 12);
-    // Body
-    this.playerGfx.fillStyle(PALETTE.player);
-    this.playerGfx.fillRoundedRect(sx - 9, sy - 22, 18, 18, 4);
-    // Head
-    this.playerGfx.fillStyle(0xf0d8b8);
-    this.playerGfx.fillCircle(sx, sy - 28, 9);
-    // Eyes
-    this.playerGfx.fillStyle(0x3a2810);
-    this.playerGfx.fillCircle(sx - 3, sy - 29, 2);
-    this.playerGfx.fillCircle(sx + 3, sy - 29, 2);
-
-    this.playerGfx.setDepth(this.playerPos.x + this.playerPos.y + 0.9);
-  }
-
-  onTileTap(tile) {
-    if (this.playerWalking || this.isRotating) return;
-    const path = this.graph.bfs(this.playerPos.x, this.playerPos.y, tile.x, tile.y);
-    if (path && path.length > 1) {
-      this.walkPath = path.slice(1);
-      this.walkNext();
-    }
-  }
-
-  walkNext() {
-    if (!this.walkPath.length) {
-      this.playerWalking = false;
-      this.checkGoal();
-      return;
-    }
-    this.playerWalking = true;
-    const next = this.walkPath.shift();
-    const startPos = { ...this.playerPos };
-
-    // Find z for destination tile
-    let destZ = 0;
-    for (const sec of this.levelData.sections) {
-      const t = sec.tiles.find(t => t.x === next.x && t.y === next.y && t.type !== 'wall');
-      if (t) { destZ = t.z || 0; break; }
-    }
-
-    const { x: x1, y: y1 } = isoToScreen(startPos.x, startPos.y, startPos.z||0, this.originX, this.originY);
-    const { x: x2, y: y2 } = isoToScreen(next.x, next.y, destZ, this.originX, this.originY);
-
-    this.playerPos = { x: next.x, y: next.y, z: destZ };
-
-    // Animate player graphics
-    const steps = 12;
-    let step = 0;
-    const timer = this.time.addEvent({
-      delay: 16, repeat: steps - 1,
-      callback: () => {
-        step++;
-        const t = step / steps;
-        const ease = t < 0.5 ? 2*t*t : -1+(4-2*t)*t; // ease in-out quad
-        const cx = x1 + (x2 - x1) * ease;
-        const cy = y1 + (y2 - y1) * ease;
-        const bobY = Math.sin(t * Math.PI) * -8; // hop arc
-
-        if (this.playerGfx) this.playerGfx.destroy();
-        if (this.shadowGfx) this.shadowGfx.destroy();
-
-        // Redraw at interpolated position
-        this.shadowGfx = this.add.graphics();
-        this.shadowGfx.fillStyle(PALETTE.player_shadow, 0.3 * (1 - Math.sin(t*Math.PI)*0.5));
-        this.shadowGfx.fillEllipse(cx, cy + TILE_H/2 - 4, TILE_W*0.6*(1-Math.sin(t*Math.PI)*0.2), TILE_H*0.4);
-        this.shadowGfx.setDepth(next.x + next.y + 0.4);
-
-        this.playerGfx = this.add.graphics();
-        const py = cy + bobY;
-        this.playerGfx.fillStyle(0x8a6e4f);
-        this.playerGfx.fillRect(cx-6, py-4, 5, 12);
-        this.playerGfx.fillRect(cx+1, py-4, 5, 12);
-        this.playerGfx.fillStyle(PALETTE.player);
-        this.playerGfx.fillRoundedRect(cx-9, py-22, 18, 18, 4);
-        this.playerGfx.fillStyle(0xf0d8b8);
-        this.playerGfx.fillCircle(cx, py-28, 9);
-        this.playerGfx.fillStyle(0x3a2810);
-        this.playerGfx.fillCircle(cx-3, py-29, 2);
-        this.playerGfx.fillCircle(cx+3, py-29, 2);
-        this.playerGfx.setDepth(next.x + next.y + 0.9);
-
-        if (step >= steps) {
-          this.walkNext();
-        }
-      }
-    });
-  }
-
-  rotateSection(sectionId, direction) {
-    if (this.isRotating || this.playerWalking) return;
-    const sec = this.levelData.sections.find(s => s.id === sectionId);
-    if (!sec || !sec.rotatable) return;
-
-    this.isRotating = true;
-    const steps = sec.rotationSteps || 4;
-    sec.currentRotation = ((sec.currentRotation || 0) + direction + steps) % steps;
-
-    // Animate: flash the section tiles, then redraw
-    const flashGraphics = this.add.graphics();
-    flashGraphics.setDepth(300);
-    let alpha = 0.5;
-    const flashTimer = this.time.addEvent({
-      delay: 30, repeat: 5,
-      callback: () => {
-        flashGraphics.clear();
-        for (const tile of sec.tiles) {
-          const { x: sx, y: sy } = isoToScreen(tile.x, tile.y, tile.z||0, this.originX, this.originY);
-          const hw = TILE_W/2, hh = TILE_H/2;
-          flashGraphics.fillStyle(PALETTE.section_highlight, alpha);
-          flashGraphics.beginPath();
-          flashGraphics.moveTo(sx, sy-hh);
-          flashGraphics.lineTo(sx+hw, sy);
-          flashGraphics.lineTo(sx, sy+hh);
-          flashGraphics.lineTo(sx-hw, sy);
-          flashGraphics.closePath(); flashGraphics.fillPath();
-          alpha -= 0.08;
-        }
-        if (alpha <= 0) {
-          flashGraphics.destroy();
-          this.graph = this.lvMgr.buildGraph(this.levelData);
-          this.clearScene();
-          this.drawLevel();
-          this.drawPlayer();
-          this.isRotating = false;
-        }
-      }
-    });
-  }
-
-  checkGoal() {
-    const g = this.levelData.goal;
-    if (this.playerPos.x === g.x && this.playerPos.y === g.y) {
-      this.time.delayedCall(400, () => this.showLevelComplete());
-    }
-  }
-
-  showLevelComplete() {
-    const idx = this.lvMgr.currentIndex;
-    const isLast = idx >= 4;
-    document.getElementById('complete-msg').textContent =
-      isLast ? 'You savoured every drop. The end.' : 'The coffee awaits…';
-    document.getElementById('next-btn').style.display = isLast ? 'none' : 'block';
-    document.getElementById('level-complete').classList.add('show');
-  }
-
-  updateHUD() {
-    const d = this.levelData;
-    const idx = this.lvMgr.currentIndex;
-    document.getElementById('level-title').textContent = `Level ${idx+1} — ${d.name}`;
-    document.getElementById('level-counter').textContent = `${idx+1} / 5`;
-  }
-
-  setupInput() {
-    this.input.on('pointerdown', (ptr) => {
-      // Handled by individual tile/button listeners
-    });
-    // Keyboard rotation (for desktop testing)
-    this.input.keyboard.on('keydown-R', () => {
-      // Rotate first rotatable section
-      const sec = this.levelData.sections.find(s => s.rotatable);
-      if (sec) this.rotateSection(sec.id, 1);
-    });
-  }
+  return g;
 }
 
-// ─────────────────────────────────────────────
-//  GLOBAL: next level, hint
-// ─────────────────────────────────────────────
-let gameScene = null;
-
-function nextLevel() {
-  document.getElementById('level-complete').classList.remove('show');
-  const next = gameScene.lvMgr.currentIndex + 1;
-  if (next < 5) gameScene.loadLevel(next);
+function effTile(tile,sec){
+  return{...tile,z:(tile.z||0)+(sec.zOffset||0)};
 }
 
-document.getElementById('hint-btn').addEventListener('click', () => {
-  if (!gameScene) return;
-  // Highlight all rotatable sections briefly
-  for (const sec of gameScene.levelData.sections) {
-    if (sec.rotatable) {
-      gameScene.time.delayedCall(0, () => {
-        const g = gameScene.add.graphics();
-        g.setDepth(250);
-        for (const tile of sec.tiles) {
-          const { x: sx, y: sy } = isoToScreen(tile.x, tile.y, tile.z||0, gameScene.originX, gameScene.originY);
-          g.lineStyle(2, 0xf5c842, 0.8);
-          g.strokeCircle(sx, sy, TILE_W * 0.4);
-        }
-        gameScene.time.delayedCall(1200, () => g.destroy());
-      });
-    }
-  }
-});
+// ═══════════════════════════════════════════════════════
+//  CANVAS SETUP
+// ═══════════════════════════════════════════════════════
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+let W=0,H=0,OX=0,OY=0;
 
-// ─────────────────────────────────────────────
-//  PHASER CONFIG
-// ─────────────────────────────────────────────
-const config = {
-  type: Phaser.AUTO,
-  backgroundColor: PALETTE.bg,
-  scale: {
-    mode: Phaser.Scale.RESIZE,
-    parent: 'game-container',
-    width: '100%',
-    height: '100%',
-  },
-  scene: GameScene,
-  callbacks: {
-    postBoot: (game) => {
-      gameScene = game.scene.getScene('GameScene');
+function resize(){
+  W=canvas.width=window.innerWidth;
+  H=canvas.height=window.innerHeight;
+  recomputeOrigin();
+  render();
+}
+window.addEventListener('resize',resize);
+
+function recomputeOrigin(){
+  if(!game.level)return;
+  const lv=game.level;
+  const mcx=(lv.playerStart.x+lv.goal.x)/2;
+  const mcy=(lv.playerStart.y+lv.goal.y)/2;
+  const sc=iso(mcx,mcy,0,0,0);
+  OX=W/2-sc.x;
+  OY=H/2-sc.y+H*0.04;
+}
+
+// ═══════════════════════════════════════════════════════
+//  DRAWING HELPERS
+// ═══════════════════════════════════════════════════════
+
+// Draw one iso block using explicit colour strings
+function drawBlockColored(gx,gy,gz,palT,palL,palR,alpha){
+  const{x:sx,y:sy}=iso(gx,gy,gz,OX,OY);
+  const hw=TW/2,hh=TH/2,depth=TD;
+  if(alpha!==undefined&&alpha!==1){ctx.globalAlpha=alpha;}
+
+  ctx.fillStyle=palT;
+  ctx.beginPath();ctx.moveTo(sx,sy-hh);ctx.lineTo(sx+hw,sy);
+  ctx.lineTo(sx,sy+hh);ctx.lineTo(sx-hw,sy);ctx.closePath();ctx.fill();
+
+  ctx.fillStyle=palL;
+  ctx.beginPath();ctx.moveTo(sx-hw,sy);ctx.lineTo(sx,sy+hh);
+  ctx.lineTo(sx,sy+hh+depth);ctx.lineTo(sx-hw,sy+depth);ctx.closePath();ctx.fill();
+
+  ctx.fillStyle=palR;
+  ctx.beginPath();ctx.moveTo(sx,sy+hh);ctx.lineTo(sx+hw,sy);
+  ctx.lineTo(sx+hw,sy+depth);ctx.lineTo(sx,sy+hh+depth);ctx.closePath();ctx.fill();
+
+  ctx.strokeStyle='rgba(0,0,0,0.18)';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(sx,sy-hh);ctx.lineTo(sx+hw,sy);
+  ctx.lineTo(sx,sy+hh);ctx.lineTo(sx-hw,sy);ctx.closePath();ctx.stroke();
+
+  if(alpha!==undefined&&alpha!==1)ctx.globalAlpha=1;
+}
+
+// Choose palette for a tile given section index and tile type
+function palFor(secIdx,tileType,hovered){
+  if(tileType==='goal')  return[GOAL_PAL.t, GOAL_PAL.l, GOAL_PAL.r];
+  if(tileType==='wall')  return[WALL_PAL.t, WALL_PAL.l, WALL_PAL.r];
+  const p=SEC_PALETTES[secIdx%SEC_PALETTES.length];
+  if(hovered) return[HOVER_TOP, p.l, p.r];
+  return[p.t, p.l, p.r];
+}
+
+function drawBtn(cx,cy,label,hovered,color){
+  ctx.fillStyle=hovered?'rgba(200,169,122,.38)':'rgba(200,169,122,.18)';
+  ctx.strokeStyle=color||'#c8a97a'; ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.arc(cx,cy,18,0,Math.PI*2);ctx.fill();ctx.stroke();
+  ctx.fillStyle=color||'#c8a97a';
+  ctx.font='bold 15px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillText(label,cx,cy+1);
+}
+
+function roundRect(c,x,y,w,h,r){
+  c.beginPath();
+  c.moveTo(x+r,y);c.lineTo(x+w-r,y);c.quadraticCurveTo(x+w,y,x+w,y+r);
+  c.lineTo(x+w,y+h-r);c.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+  c.lineTo(x+r,y+h);c.quadraticCurveTo(x,y+h,x,y+h-r);
+  c.lineTo(x,y+r);c.quadraticCurveTo(x,y,x+r,y);c.closePath();
+}
+
+function drawPlayer(sx,sy,bobY){
+  const py=sy+(bobY||0);
+  ctx.fillStyle='rgba(58,40,16,.28)';
+  ctx.beginPath();ctx.ellipse(sx,sy+TH/2-4,TW*.28,TH*.18,0,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#8a6e4f';
+  ctx.fillRect(sx-6,py-4,5,13);ctx.fillRect(sx+1,py-4,5,13);
+  ctx.fillStyle='#e8e0d4';
+  roundRect(ctx,sx-9,py-24,18,20,4);ctx.fill();
+  ctx.fillStyle='#f0d8b8';
+  ctx.beginPath();ctx.arc(sx,py-32,9,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#3a2810';
+  ctx.beginPath();ctx.arc(sx-3,py-33,2,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.arc(sx+3,py-33,2,0,Math.PI*2);ctx.fill();
+}
+
+// ═══════════════════════════════════════════════════════
+//  RENDER SECTION TO OFFSCREEN CANVAS
+//  Used both for normal drawing and rotation animation.
+//  Returns {offscreen, pivotScreenX, pivotScreenY}
+// ═══════════════════════════════════════════════════════
+function renderSectionOffscreen(sec,secIdx,hoverTile){
+  // Find bounding box in screen space
+  let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+  for(const t of sec.tiles){
+    const et=effTile(t,sec);
+    const{x:sx,y:sy}=iso(et.x,et.y,et.z,OX,OY);
+    const hw=TW/2,depth=TD+(t.type==='wall'?TD*2:0);
+    minX=Math.min(minX,sx-hw-2); maxX=Math.max(maxX,sx+hw+2);
+    minY=Math.min(minY,sy-TH/2-2); maxY=Math.max(maxY,sy+TH/2+depth+2);
+  }
+  const pad=20;
+  minX-=pad;minY-=pad;maxX+=pad;maxY+=pad;
+  const ow=Math.ceil(maxX-minX),oh=Math.ceil(maxY-minY);
+
+  const off=document.createElement('canvas');
+  off.width=ow; off.height=oh;
+  const oc=off.getContext('2d');
+
+  // Sort tiles painter-order
+  const sorted=[...sec.tiles].sort((a,b)=>(a.x+a.y+(a.z||0)*.01)-(b.x+b.y+(b.z||0)*.01));
+
+  for(const t of sorted){
+    const et=effTile(t,sec);
+    const{x:sx,y:sy}=iso(et.x,et.y,et.z,OX,OY);
+    const lx=sx-minX, ly=sy-minY;
+    const isHov=hoverTile&&hoverTile.x===et.x&&hoverTile.y===et.y;
+    const[pt,pl,pr]=palFor(secIdx,t.type,isHov);
+    const hw=TW/2,hh=TH/2;
+    const depth=t.type==='wall'?TD*3:TD;
+
+    oc.fillStyle=pt;
+    oc.beginPath();oc.moveTo(lx,ly-hh);oc.lineTo(lx+hw,ly);
+    oc.lineTo(lx,ly+hh);oc.lineTo(lx-hw,ly);oc.closePath();oc.fill();
+
+    oc.fillStyle=pl;
+    oc.beginPath();oc.moveTo(lx-hw,ly);oc.lineTo(lx,ly+hh);
+    oc.lineTo(lx,ly+hh+depth);oc.lineTo(lx-hw,ly+depth);oc.closePath();oc.fill();
+
+    oc.fillStyle=pr;
+    oc.beginPath();oc.moveTo(lx,ly+hh);oc.lineTo(lx+hw,ly);
+    oc.lineTo(lx+hw,ly+depth);oc.lineTo(lx,ly+hh+depth);oc.closePath();oc.fill();
+
+    oc.strokeStyle='rgba(0,0,0,0.18)';oc.lineWidth=1;
+    oc.beginPath();oc.moveTo(lx,ly-hh);oc.lineTo(lx+hw,ly);
+    oc.lineTo(lx,ly+hh);oc.lineTo(lx-hw,ly);oc.closePath();oc.stroke();
+
+    if(t.type==='goal'){
+      oc.font='20px serif';oc.textAlign='center';
+      oc.fillText('☕',lx,ly-hh-2);
     }
   }
+
+  // Compute pivot in screen space, then relative to offscreen canvas
+  const pivot=sec.pivot||{x:sec.tiles[0].x,y:sec.tiles[0].y};
+  const{x:pvx,y:pvy}=iso(pivot.x,pivot.y,(sec.tiles[0]?.z||0)+(sec.zOffset||0),OX,OY);
+
+  return{off,offX:minX,offY:minY,pivotScreenX:pvx,pivotScreenY:pvy};
+}
+
+// ═══════════════════════════════════════════════════════
+//  MAIN RENDER
+// ═══════════════════════════════════════════════════════
+function render(){
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle='#1a1410';ctx.fillRect(0,0,W,H);
+  if(!game.level)return;
+
+  const lv=game.level;
+
+  // Build sorted tile list across all sections
+  let allTiles=[];
+  for(let si=0;si<lv.sections.length;si++){
+    const sec=lv.sections[si];
+    // Skip sections currently being spin-animated
+    if(game.rotAnim&&game.rotAnim.secId===sec.id)continue;
+    for(const t of sec.tiles){
+      const et=effTile(t,sec);
+      allTiles.push({...et,secIdx:si,secId:sec.id,origType:t.type});
+    }
+  }
+  allTiles.sort((a,b)=>(a.x+a.y+(a.z||0)*.01)-(b.x+b.y+(b.z||0)*.01));
+
+  for(const tile of allTiles){
+    const isHov=!game.walking&&game.hover&&game.hover.x===tile.x&&game.hover.y===tile.y;
+    const[pt,pl,pr]=palFor(tile.secIdx,tile.origType,isHov);
+    drawBlockColored(tile.x,tile.y,tile.z||0,pt,pl,pr);
+    if(tile.origType==='goal'){
+      const{x:sx,y:sy}=iso(tile.x,tile.y,tile.z||0,OX,OY);
+      ctx.font='20px serif';ctx.textAlign='center';
+      ctx.fillText('☕',sx,sy-TH/2-2);
+    }
+  }
+
+  // Draw rotating section on top via offscreen canvas (spun around pivot)
+  if(game.rotAnim){
+    const{secId,angle,secIdx}=game.rotAnim;
+    const sec=lv.sections.find(s=>s.id===secId);
+    if(sec){
+      const{off,offX,offY,pivotScreenX,pivotScreenY}=renderSectionOffscreen(sec,secIdx,null);
+      ctx.save();
+      ctx.translate(pivotScreenX,pivotScreenY);
+      ctx.rotate(angle);
+      ctx.translate(-pivotScreenX,-pivotScreenY);
+      ctx.drawImage(off,offX,offY);
+      ctx.restore();
+    }
+  }
+
+  // Path preview dots
+  if(game.previewPath){
+    for(const step of game.previewPath){
+      const pz=tileZ(step.x,step.y);
+      const{x:sx,y:sy}=iso(step.x,step.y,pz,OX,OY);
+      ctx.fillStyle='rgba(200,169,122,.4)';
+      ctx.beginPath();ctx.arc(sx,sy,5,0,Math.PI*2);ctx.fill();
+    }
+  }
+
+  // Section control buttons
+  game.buttons=[];
+  for(let si=0;si<lv.sections.length;si++){
+    const sec=lv.sections[si];
+    if(!sec.rotatable&&!sec.elevatable)continue;
+    if(!sec.tiles.length)continue;
+    // If rotating, don't show buttons for that section mid-animation
+    if(game.rotAnim&&game.rotAnim.secId===sec.id)continue;
+
+    const xs=sec.tiles.map(t=>t.x),ys=sec.tiles.map(t=>t.y);
+    const cx2=xs.reduce((a,b)=>a+b,0)/xs.length;
+    const cy2=ys.reduce((a,b)=>a+b,0)/ys.length;
+    const maxZ=Math.max(...sec.tiles.map(t=>(t.z||0)))+(sec.zOffset||0);
+    const{x:bx,y:by}=iso(cx2,cy2,maxZ+1.6,OX,OY);
+
+    if(sec.rotatable){
+      const hov=game.hovBtn&&game.hovBtn.secId===sec.id&&game.hovBtn.type==='rot';
+      const col=SEC_PALETTES[(si)%SEC_PALETTES.length].t;
+      drawBtn(bx,by,'↻',hov,col);
+      game.buttons.push({cx:bx,cy:by,r:22,secId:sec.id,type:'rot'});
+    }
+    if(sec.elevatable){
+      const canUp=(sec.zOffset||0)<(sec.zMax||2);
+      const canDown=(sec.zOffset||0)>(sec.zMin||0);
+      const col=SEC_PALETTES[(si)%SEC_PALETTES.length].t;
+      if(canUp){
+        const hov=game.hovBtn&&game.hovBtn.secId===sec.id&&game.hovBtn.type==='up';
+        drawBtn(bx+28,by-10,'▲',hov,col);
+        game.buttons.push({cx:bx+28,cy:by-10,r:20,secId:sec.id,type:'up'});
+      }
+      if(canDown){
+        const hov=game.hovBtn&&game.hovBtn.secId===sec.id&&game.hovBtn.type==='down';
+        drawBtn(bx-28,by-10,'▼',hov,col);
+        game.buttons.push({cx:bx-28,cy:by-10,r:20,secId:sec.id,type:'down'});
+      }
+    }
+  }
+
+  // Player
+  let drawX,drawY;
+  if(game._walkX!=null){drawX=game._walkX;drawY=game._walkY;}
+  else{const p=iso(game.playerX,game.playerY,game.playerZ,OX,OY);drawX=p.x;drawY=p.y;}
+  drawPlayer(drawX,drawY,game.playerBobY);
+}
+
+// ═══════════════════════════════════════════════════════
+//  GAME STATE
+// ═══════════════════════════════════════════════════════
+const game={
+  level:null,graph:null,levelIdx:0,
+  playerX:0,playerY:0,playerZ:0,playerBobY:0,
+  walking:false,animating:false,
+  hover:null,hovBtn:null,previewPath:null,
+  buttons:[],elevSec:null,
+  rotAnim:null,   // { secId, angle, secIdx } — live rotation animation state
+  _walkX:null,_walkY:null,
 };
 
-const game = new Phaser.Game(config);
+function loadLevel(idx){
+  const lv=JSON.parse(JSON.stringify(LEVELS[idx]));
+  game.levelIdx=idx;
+  game.level=lv;
+  game.graph=buildGraph(lv);
+  game.playerX=lv.playerStart.x;
+  game.playerY=lv.playerStart.y;
+  game.playerZ=lv.playerStart.z||0;
+  game.playerBobY=0;
+  game.walking=false;game.animating=false;
+  game.hover=null;game.hovBtn=null;game.previewPath=null;
+  game.elevSec=null;game.rotAnim=null;
+  game._walkX=null;game._walkY=null;
+  recomputeOrigin();
+  document.getElementById('level-title').textContent=`Level ${idx+1} — ${lv.name}`;
+  document.getElementById('level-counter').textContent=`${idx+1} / 5`;
+  render();
+}
+
+function nextLevel(){
+  document.getElementById('overlay').classList.remove('show');
+  const n=game.levelIdx+1;
+  if(n<LEVELS.length)loadLevel(n);
+}
+
+function getPlayerZ(){
+  for(const sec of game.level.sections){
+    const t=sec.tiles.find(t=>t.x===game.playerX&&t.y===game.playerY&&t.type!=='wall');
+    if(t)return(t.z||0)+(sec.zOffset||0);
+  }
+  return game.playerZ;
+}
+
+function tileZ(x,y){
+  for(const sec of game.level.sections){
+    const t=sec.tiles.find(t=>t.x===x&&t.y===y&&t.type!=='wall');
+    if(t)return(t.z||0)+(sec.zOffset||0);
+  }
+  return 0;
+}
+
+// ═══════════════════════════════════════════════════════
+//  ROTATION ANIMATION
+//  Spins the section's offscreen image 90° around the
+//  iso-projected pivot point, then snaps to new grid state.
+// ═══════════════════════════════════════════════════════
+function rotateSection(secId){
+  if(game.animating||game.walking)return;
+  const lv=game.level;
+  const sec=lv.sections.find(s=>s.id===secId);
+  if(!sec||!sec.rotatable)return;
+
+  const secIdx=lv.sections.indexOf(sec);
+  game.animating=true;
+
+  // Target angle in screen space.
+  // iso rotation of 90° in grid space = 90° clockwise in screen space.
+  const TARGET=Math.PI/2;
+  const FRAMES=22;
+  let frame=0;
+
+  // Show the section spinning in place
+  game.rotAnim={secId,angle:0,secIdx};
+
+  const tick=()=>{
+    frame++;
+    const t=frame/FRAMES;
+    // Ease in-out cubic
+    const e=t<.5?4*t*t*t:(t-1)*(2*t-2)*(2*t-2)+1;
+    game.rotAnim.angle=TARGET*e;
+    render();
+    if(frame<FRAMES){
+      requestAnimationFrame(tick);
+    }else{
+      // Commit: advance rotation state, rebuild graph
+      const steps=sec.rotationSteps||4;
+      sec.currentRotation=((sec.currentRotation||0)+1+steps)%steps;
+      game.rotAnim=null;
+      game.graph=buildGraph(lv);
+      game.playerZ=getPlayerZ();
+      game.animating=false;
+      render();
+    }
+  };
+  requestAnimationFrame(tick);
+}
+
+// ═══════════════════════════════════════════════════════
+//  ELEVATOR ANIMATION
+// ═══════════════════════════════════════════════════════
+function moveElevator(secId,direction){
+  if(game.animating||game.walking)return;
+  const sec=game.level.sections.find(s=>s.id===secId);
+  if(!sec||!sec.elevatable)return;
+  const zMin=sec.zMin||0,zMax=sec.zMax||2;
+  const newZ=(sec.zOffset||0)+direction;
+  if(newZ<zMin||newZ>zMax)return;
+
+  game.animating=true;game.elevSec=secId;
+  const startZ=sec.zOffset||0;
+  const FRAMES=20;let frame=0;
+
+  const tick=()=>{
+    frame++;
+    const t=frame/FRAMES;
+    const e=t<.5?4*t*t*t:(t-1)*(2*t-2)*(2*t-2)+1;
+    sec.zOffset=startZ+direction*e;
+    const onElev=sec.tiles.some(t=>t.x===game.playerX&&t.y===game.playerY);
+    if(onElev){
+      const bt=sec.tiles.find(t=>t.x===game.playerX&&t.y===game.playerY);
+      game.playerZ=(bt?.z||0)+sec.zOffset;
+    }
+    render();
+    if(frame<FRAMES){requestAnimationFrame(tick);}
+    else{
+      sec.zOffset=newZ;
+      game.graph=buildGraph(game.level);
+      game.playerZ=getPlayerZ();
+      game.animating=false;game.elevSec=null;
+      render();
+    }
+  };
+  requestAnimationFrame(tick);
+}
+
+// ═══════════════════════════════════════════════════════
+//  WALK ANIMATION
+// ═══════════════════════════════════════════════════════
+function walkTo(path){
+  if(!path||path.length<2)return;
+  game.walking=true;game.previewPath=null;
+  const steps=path.slice(1);
+
+  const doStep=()=>{
+    if(!steps.length){game.walking=false;checkGoal();render();return;}
+    const next=steps.shift();
+    const destZ=tileZ(next.x,next.y);
+    const{x:x1,y:y1}=iso(game.playerX,game.playerY,game.playerZ,OX,OY);
+    const{x:x2,y:y2}=iso(next.x,next.y,destZ,OX,OY);
+    const FRAMES=13;let frame=0;
+
+    const anim=()=>{
+      frame++;
+      const t=frame/FRAMES;
+      const e=t<.5?2*t*t:-1+(4-2*t)*t;
+      game._walkX=x1+(x2-x1)*e;
+      game._walkY=y1+(y2-y1)*e;
+      game.playerBobY=Math.sin(t*Math.PI)*-10;
+      render();
+      if(frame<FRAMES){requestAnimationFrame(anim);}
+      else{
+        game.playerX=next.x;game.playerY=next.y;game.playerZ=destZ;
+        game.playerBobY=0;game._walkX=null;game._walkY=null;
+        doStep();
+      }
+    };
+    requestAnimationFrame(anim);
+  };
+  doStep();
+}
+
+// ═══════════════════════════════════════════════════════
+//  WIN
+// ═══════════════════════════════════════════════════════
+function checkGoal(){
+  const g=game.level.goal;
+  if(game.playerX===g.x&&game.playerY===g.y){
+    setTimeout(()=>{
+      const isLast=game.levelIdx>=LEVELS.length-1;
+      document.getElementById('ov-msg').textContent=
+        isLast?'You savoured every drop. The end.':'The coffee beckons…';
+      document.getElementById('ov-btn').style.display=isLast?'none':'block';
+      document.getElementById('overlay').classList.add('show');
+    },500);
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  INPUT
+// ═══════════════════════════════════════════════════════
+function btnAt(cx,cy){
+  for(const btn of game.buttons){
+    const dx=cx-btn.cx,dy=cy-btn.cy;
+    if(dx*dx+dy*dy<=btn.r*btn.r)return btn;
+  }
+  return null;
+}
+
+function gridHitAt(cx,cy){
+  if(!game.level)return null;
+  let all=[];
+  for(let si=0;si<game.level.sections.length;si++){
+    const sec=game.level.sections[si];
+    for(const t of sec.tiles){
+      if(t.type==='wall')continue;
+      const et=effTile(t,sec);
+      all.push({...et,secIdx:si});
+    }
+  }
+  all.sort((a,b)=>(b.x+b.y+(b.z||0)*.01)-(a.x+a.y+(a.z||0)*.01));
+  for(const t of all){
+    if(hitTile(cx,cy,t.x,t.y,t.z||0,OX,OY))return{x:t.x,y:t.y};
+  }
+  return null;
+}
+
+function onPointerDown(cx,cy){
+  if(game.animating)return;
+  const btn=btnAt(cx,cy);
+  if(btn){
+    if(btn.type==='rot')  rotateSection(btn.secId);
+    if(btn.type==='up')   moveElevator(btn.secId,1);
+    if(btn.type==='down') moveElevator(btn.secId,-1);
+    return;
+  }
+  if(game.walking)return;
+  const tile=gridHitAt(cx,cy);
+  if(!tile)return;
+  const path=game.graph.bfs(game.playerX,game.playerY,tile.x,tile.y);
+  if(path)walkTo(path);
+}
+
+function onPointerMove(cx,cy){
+  if(game.walking||game.animating){
+    game.hover=null;game.hovBtn=null;render();return;
+  }
+  const btn=btnAt(cx,cy);
+  game.hovBtn=btn||null;
+  if(!btn){
+    const tile=gridHitAt(cx,cy);
+    game.hover=tile||null;
+    game.previewPath=tile?game.graph.bfs(game.playerX,game.playerY,tile.x,tile.y):null;
+  }else{game.hover=null;game.previewPath=null;}
+  render();
+}
+
+canvas.addEventListener('mousedown',e=>{e.preventDefault();onPointerDown(e.clientX,e.clientY);});
+canvas.addEventListener('mousemove',e=>onPointerMove(e.clientX,e.clientY));
+canvas.addEventListener('mouseleave',()=>{game.hover=null;game.hovBtn=null;game.previewPath=null;render();});
+canvas.addEventListener('touchstart',e=>{e.preventDefault();const t=e.changedTouches[0];onPointerDown(t.clientX,t.clientY);},{passive:false});
+canvas.addEventListener('touchmove',e=>{e.preventDefault();const t=e.changedTouches[0];onPointerMove(t.clientX,t.clientY);},{passive:false});
+canvas.addEventListener('touchend',e=>{e.preventDefault();game.hover=null;game.hovBtn=null;render();},{passive:false});
+
+document.addEventListener('keydown',e=>{
+  if(!game.level||game.animating)return;
+  const secs=game.level.sections;
+  if(e.key==='r'||e.key==='R'){const s=secs.find(s=>s.rotatable);if(s)rotateSection(s.id);}
+  if(e.key==='ArrowUp'){const s=secs.find(s=>s.elevatable);if(s)moveElevator(s.id,1);}
+  if(e.key==='ArrowDown'){const s=secs.find(s=>s.elevatable);if(s)moveElevator(s.id,-1);}
+});
+
+// ═══════════════════════════════════════════════════════
+//  BOOT
+// ═══════════════════════════════════════════════════════
+window.addEventListener('load',()=>{
+  resize();
+  loadLevel(0);
+  document.getElementById('loading').style.display='none';
+});
 </script>
 </body>
 </html>
